@@ -19,17 +19,33 @@ function required(name: string, value: string | undefined): string {
   return value;
 }
 
-/** Im Browser UND auf dem Server verfügbar. */
+/**
+ * Im Browser UND auf dem Server verfügbar.
+ *
+ * Als Getter, nicht als feste Werte: sonst würde die Prüfung schon beim Import
+ * laufen und `next build` scheitern, bevor überhaupt jemand die App startet
+ * (im Build-Container gibt es keine Keys). So knallt es erst, wenn der Wert
+ * wirklich gebraucht wird.
+ *
+ * Die `process.env.NEXT_PUBLIC_*` müssen dabei wörtlich dastehen — nur so
+ * ersetzt sie der Next-Build im Browser-Bundle durch den echten Wert.
+ */
 export const publicEnv = {
-  supabaseUrl: required(
-    "NEXT_PUBLIC_SUPABASE_URL",
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-  ),
-  supabaseAnonKey: required(
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  ),
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  get supabaseUrl() {
+    return required(
+      "NEXT_PUBLIC_SUPABASE_URL",
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+    );
+  },
+  get supabaseAnonKey() {
+    return required(
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    );
+  },
+  get siteUrl() {
+    return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  },
 };
 
 /**
