@@ -74,6 +74,8 @@ export type Profile = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string;
+  av_zugestimmt_am: string | null;
+  agb_zugestimmt_am: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -125,6 +127,8 @@ export type Angebot = {
   brutto: number;
   notiz: string | null;
   pdf_path: string | null;
+  gesendet_am: string | null;
+  entschieden_am: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -145,6 +149,22 @@ export type Position = {
   ki_konfidenz: number | null;
   created_at: string;
   updated_at: string;
+};
+
+/** Ein KI-Lauf (Whisper oder Claude) — Grundlage für Kontingent und Marge. */
+export type KiNutzung = {
+  id: string;
+  user_id: string;
+  angebot_id: string | null;
+  art: "transkription" | "extraktion";
+  modell: string;
+  eingabe_token: number;
+  ausgabe_token: number;
+  cache_token: number;
+  audio_sekunden: number;
+  /** Zehntel-Cent, damit ein Lauf für 0,04 € nicht auf 0 gerundet wird. */
+  kosten_zehntelcent: number;
+  created_at: string;
 };
 
 /**
@@ -185,6 +205,12 @@ export type Database = {
         /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
         Relationships: [];
       };
+      ki_nutzung: {
+        Row: KiNutzung;
+        Insert: Omit<KiNutzung, "id" | "created_at"> & { id?: string };
+        Update: Partial<KiNutzung>;
+        Relationships: [];
+      };
       positionen: {
         Row: Position;
         Insert: Omit<Position, "id" | "gesamtpreis" | "created_at" | "updated_at"> & {
@@ -202,6 +228,10 @@ export type Database = {
       next_angebot_nummer: {
         Args: { p_user_id: string };
         Returns: string;
+      };
+      angebote_diesen_monat: {
+        Args: { p_user_id: string };
+        Returns: number;
       };
       suche_preisliste: {
         Args: { p_suchtext: string; p_limit?: number; p_min_score?: number };

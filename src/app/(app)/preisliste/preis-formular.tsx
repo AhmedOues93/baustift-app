@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { preisAendern, preisAnlegen, preisLoeschen, type PreisState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input, Meldung, Select, Textarea } from "@/components/ui/field";
+import { Sheet } from "@/components/ui/sheet";
 import { formatPreisEingabe } from "@/lib/format";
 import { EINHEIT_LABEL, type Einheit, type PreislisteEintrag } from "@/types/database";
 
@@ -31,63 +32,43 @@ export function PreisFormular({
     {},
   );
 
-  const ersteFeldRef = useRef<HTMLInputElement>(null);
-
   // Nach erfolgreichem Speichern das Sheet schliessen.
   useEffect(() => {
     if (state.erfolg) onSchliessen();
   }, [state.erfolg, onSchliessen]);
 
-  // Escape schliesst — auf dem Desktop erwartet man das.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onSchliessen();
-    }
-    document.addEventListener("keydown", onKey);
-    // Hintergrund nicht mitscrollen lassen, solange das Sheet offen ist.
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [onSchliessen]);
-
-  useEffect(() => {
-    ersteFeldRef.current?.focus();
-  }, []);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        aria-label="Schliessen"
-        onClick={onSchliessen}
-        className="absolute inset-0 bg-tief/40"
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={bearbeiten ? "Preis bearbeiten" : "Preis anlegen"}
-        className={[
-          "relative flex max-h-[92vh] w-full flex-col overflow-y-auto bg-flaeche shadow-sheet",
-          // Nur oben gerundet: das Sheet sitzt bündig auf der Unterkante.
-          "rounded-t-sheet px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4",
-          "sm:max-w-lg sm:rounded-karte sm:p-6",
-        ].join(" ")}
-      >
-        {/* Griff-Balken: das übliche Signal "nach unten wischen zum Schliessen". */}
-        <div className="mx-auto mb-4 h-1.5 w-10 shrink-0 rounded-full bg-linie sm:hidden" />
-
-        <h2 className="text-xl">
-          {bearbeiten ? "Preis bearbeiten" : "Neuer Preis"}
-        </h2>
-
+    <Sheet
+      titel={bearbeiten ? "Preis bearbeiten" : "Neuer Preis"}
+      onSchliessen={onSchliessen}
+      fuss={
+        eintrag ? (
+          // Löschen liegt bewusst hier unten und als eigenes <form> (Formulare
+          // dürfen nicht verschachtelt werden): weit weg von "Speichern" und
+          // nur erreichbar, wenn man den Eintrag ohnehin geöffnet hat.
+          <form
+            action={preisLoeschen}
+            onSubmit={(e) => {
+              if (!confirm(`„${eintrag.bezeichnung}" wirklich löschen?`)) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <input type="hidden" name="id" value={eintrag.id} />
+            <button
+              type="submit"
+              className="min-h-11 w-full rounded-feld text-sm font-medium text-warnung transition-colors active:bg-warnung-flaeche"
+            >
+              Diesen Preis löschen
+            </button>
+          </form>
+        ) : null
+      }
+    >
         <form action={action} className="mt-4 flex flex-col gap-4">
           {eintrag ? <input type="hidden" name="id" value={eintrag.id} /> : null}
 
           <Input
-            ref={ersteFeldRef}
             label="Bezeichnung"
             name="bezeichnung"
             required
@@ -156,31 +137,7 @@ export function PreisFormular({
             <SpeichernButton bearbeiten={bearbeiten} />
           </div>
         </form>
-
-        {/* Löschen liegt bewusst hier unten und als eigenes <form> (Formulare
-            dürfen nicht verschachtelt werden): weit weg von "Speichern" und
-            nur erreichbar, wenn man den Eintrag ohnehin geöffnet hat. */}
-        {eintrag ? (
-          <form
-            action={preisLoeschen}
-            onSubmit={(e) => {
-              if (!confirm(`„${eintrag.bezeichnung}" wirklich löschen?`)) {
-                e.preventDefault();
-              }
-            }}
-            className="mt-6 border-t border-linie pt-4"
-          >
-            <input type="hidden" name="id" value={eintrag.id} />
-            <button
-              type="submit"
-              className="min-h-11 w-full rounded-feld text-sm font-medium text-warnung transition-colors active:bg-warnung-flaeche"
-            >
-              Diesen Preis löschen
-            </button>
-          </form>
-        ) : null}
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

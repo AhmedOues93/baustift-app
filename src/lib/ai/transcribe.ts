@@ -8,9 +8,26 @@ import { serverEnv } from "@/lib/env";
  * Sprachaufnahme → deutscher Text (Whisper).
  *
  * Läuft ausschliesslich serverseitig — der OpenAI-Key darf nie ins Browser-
- * Bundle. Das Audio kommt als `File`/`Blob` aus dem Upload-Handler.
+ * Bundle. Das Audio kommt als `File` aus dem Upload-Handler.
  */
-export async function transkribiere(audio: File): Promise<string> {
+
+export interface Transkript {
+  text: string;
+  /** Dauer in Sekunden — Grundlage für die Kostenabrechnung. */
+  sekunden: number;
+}
+
+/** Whisper nimmt höchstens 25 MB pro Datei. */
+export const AUDIO_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Deckel für die Aufnahmedauer. Ein Angebot beschreibt man in zwei Minuten;
+ * alles darüber ist eher ein vergessener Aufnahmeknopf in der Hosentasche —
+ * und der kostet dann bares Geld.
+ */
+export const AUDIO_MAX_SEKUNDEN = 10 * 60;
+
+export async function transkribiere(audio: File): Promise<Transkript> {
   const openai = new OpenAI({ apiKey: serverEnv().openaiApiKey });
 
   const ergebnis = await openai.audio.transcriptions.create({
@@ -25,10 +42,13 @@ export async function transkribiere(audio: File): Promise<string> {
       "Angebot im Handwerk. Fachbegriffe: Fliesen, Estrich, Dusche, Badewanne, " +
       "Waschtisch, Armatur, Vorwandinstallation, Trockenbau, Silikonfugen, " +
       "Abdichtung, Quadratmeter, laufender Meter, Stunden, Pauschale.",
-    // Reiner Text — Zeitstempel brauchen wir im MVP nicht.
-    response_format: "text",
+    // verbose_json statt text: liefert zusätzlich die Dauer, die wir für die
+    // Kostenerfassung brauchen.
+    response_format: "verbose_json",
   });
 
-  // Bei response_format "text" liefert das SDK direkt einen String.
-  return typeof ergebnis === "string" ? ergebnis.trim() : String(ergebnis).trim();
+  return {
+    text: ergebnis.text.trim(),
+    sekunden: Math.round(ergebnis.duration ?? 0),
+  };
 }

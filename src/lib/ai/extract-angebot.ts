@@ -115,6 +115,8 @@ const AngebotSchema = z.object({
 
 export interface ExtraktionsErgebnis {
   titel: string;
+  /** Für die Verbrauchsprotokollierung. */
+  modell: string;
   kundeName: string | null;
   hinweis: string | null;
   positionen: GematchtePosition[];
@@ -250,6 +252,7 @@ export async function extrahiereAngebot(
 
   return {
     titel: daten.titel,
+    modell: MODELL,
     kundeName: daten.kunde_name,
     hinweis: daten.hinweis,
     // Hier bekommen die Positionen ihre Preise — aus der Datenbank.

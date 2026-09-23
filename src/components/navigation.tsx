@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   IconAngebote,
   IconKonto,
-  IconMikrofon,
+  IconKunden,
   IconPreisliste,
 } from "@/components/ui/icons";
 
@@ -23,16 +23,19 @@ import {
  * derselben Liste, damit sie nicht auseinanderlaufen.
  */
 
+/**
+ * Vier Einträge, mehr nicht: "Neues Angebot" steht bewusst NICHT hier, sondern
+ * als grosse Aktionskarte auf der Angebotsseite. Die wichtigste Aktion des
+ * Produkts gehört nicht in einen 90px breiten Tab.
+ */
 const EINTRAEGE = [
   { href: "/angebote", label: "Angebote", Icon: IconAngebote },
-  { href: "/angebote/neu", label: "Neu", langLabel: "Neues Angebot", Icon: IconMikrofon },
+  { href: "/kunden", label: "Kunden", Icon: IconKunden },
   { href: "/preisliste", label: "Preise", langLabel: "Preisliste", Icon: IconPreisliste },
   { href: "/einstellungen", label: "Konto", Icon: IconKonto },
 ] as const;
 
 function istAktiv(pfad: string, href: string) {
-  // "/angebote/neu" darf nicht auch "/angebote" aktiv schalten.
-  if (href === "/angebote") return pfad === "/angebote";
   return pfad === href || pfad.startsWith(`${href}/`);
 }
 
