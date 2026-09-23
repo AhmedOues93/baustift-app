@@ -1,6 +1,12 @@
 /**
  * Typen für das Supabase-Schema (siehe supabase/migrations/0001_init.sql).
  *
+ * WICHTIG: Alle Zeilen-Typen sind `type` und nicht `interface`. supabase-js
+ * verlangt, dass Row/Insert/Update auf `Record<string, unknown>` passen — und
+ * genau das erfüllt ein `interface` in TypeScript nicht (es bekommt keine
+ * implizite Index-Signatur). Mit `interface` werden alle Insert-/Update-Aufrufe
+ * still zu `never` typisiert und jede Abfrage schlägt beim Kompilieren fehl.
+ *
  * Hinweis: Diese Datei kann man später auch generieren lassen
  * (`supabase gen types typescript --project-id <id> > src/types/database.ts`).
  * Bis dahin pflegen wir sie von Hand — wichtig ist, dass sie mit dem SQL
@@ -46,7 +52,7 @@ export const ANGEBOT_STATUS_LABEL: Record<AngebotStatus, string> = {
   nachfassen: "Nachfassen",
 };
 
-export interface Profile {
+export type Profile = {
   id: string;
   firma_name: string;
   inhaber_name: string | null;
@@ -70,9 +76,9 @@ export interface Profile {
   subscription_status: string;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface Kunde {
+export type Kunde = {
   id: string;
   user_id: string;
   name: string;
@@ -85,9 +91,9 @@ export interface Kunde {
   notizen: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface PreislisteEintrag {
+export type PreislisteEintrag = {
   id: string;
   user_id: string;
   bezeichnung: string;
@@ -99,9 +105,9 @@ export interface PreislisteEintrag {
   aktiv: boolean;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface Angebot {
+export type Angebot = {
   id: string;
   user_id: string;
   kunde_id: string | null;
@@ -121,9 +127,9 @@ export interface Angebot {
   pdf_path: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface Position {
+export type Position = {
   id: string;
   angebot_id: string;
   pos_nr: number;
@@ -139,25 +145,29 @@ export interface Position {
   ki_konfidenz: number | null;
   created_at: string;
   updated_at: string;
-}
+};
 
 /**
  * Schema-Definition für den typisierten Supabase-Client.
  * `Insert`/`Update` lassen Felder weg, die die DB selbst setzt
  * (id, Zeitstempel, generierte Spalten).
  */
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       profiles: {
         Row: Profile;
         Insert: Partial<Profile> & { id: string };
         Update: Partial<Profile>;
+        /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
+        Relationships: [];
       };
       kunden: {
         Row: Kunde;
         Insert: Omit<Kunde, "id" | "created_at" | "updated_at"> & { id?: string };
         Update: Partial<Kunde>;
+        /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
+        Relationships: [];
       };
       preisliste: {
         Row: PreislisteEintrag;
@@ -165,11 +175,15 @@ export interface Database {
           id?: string;
         };
         Update: Partial<PreislisteEintrag>;
+        /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
+        Relationships: [];
       };
       angebote: {
         Row: Angebot;
         Insert: Omit<Angebot, "id" | "created_at" | "updated_at"> & { id?: string };
         Update: Partial<Angebot>;
+        /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
+        Relationships: [];
       };
       positionen: {
         Row: Position;
@@ -177,17 +191,36 @@ export interface Database {
           id?: string;
         };
         Update: Partial<Omit<Position, "gesamtpreis">>;
+        /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
+        Relationships: [];
       };
+    };
+    Views: {
+      [_ in never]: never;
     };
     Functions: {
       next_angebot_nummer: {
         Args: { p_user_id: string };
         Returns: string;
       };
+      suche_preisliste: {
+        Args: { p_suchtext: string; p_limit?: number; p_min_score?: number };
+        Returns: {
+          id: string;
+          bezeichnung: string;
+          kategorie: string | null;
+          einheit: Einheit;
+          einzelpreis: number;
+          score: number;
+        }[];
+      };
     };
     Enums: {
       angebot_status: AngebotStatus;
       einheit: Einheit;
     };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
-}
+};
