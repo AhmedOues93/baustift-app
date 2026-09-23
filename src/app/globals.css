@@ -2,12 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================================================
+   BAUSTIFT DESIGN TOKENS
+   ===========================================================================
+   Einzige Quelle für Farben, Radien und Schatten. Tailwind liest genau diese
+   Variablen (siehe tailwind.config.ts) — es gibt keine zweite Palette.
+   Die Standard-Palette von Tailwind (slate, blue, …) ist bewusst abgeschaltet:
+   `text-slate-600` erzeugt damit gar keine Klasse mehr und fällt sofort auf.
+
+   Die Farben stehen als RGB-KANÄLE ("27 26 23") und nicht als "#1b1a17" da.
+   Nur so funktionieren Tailwinds Deckkraft-Kürzel: `text-text-invers/60` wird
+   zu `rgb(243 239 231 / 0.6)`. Mit einem fertigen Hex-Wert in der Variablen
+   greift das Kürzel nicht — die Klasse fällt still aus und man sitzt vor
+   dunkler Schrift auf dunklem Grund.
+   =========================================================================== */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* --- Flächen ---------------------------------------------------------- */
+  /* Warmes Elfenbein. Nie reines Weiss als Seitenhintergrund: Weiss auf Weiss
+     lässt Karten verschwinden, das Elfenbein gibt ihnen erst ihre Kante. */
+  --farbe-papier: 243 239 231;
+  --farbe-flaeche: 255 255 255;
+  /* Dunkle Fläche für Sidebar und die grossen Aktionskarten. */
+  --farbe-tief: 27 26 23;
+
+  /* --- Linien ----------------------------------------------------------- */
+  /* Genau 1px in dieser Farbe — nie dunkler, nie dicker. */
+  --farbe-linie: 226 220 207;
+
+  /* --- Schrift ---------------------------------------------------------- */
+  --farbe-text: 27 26 23; /* fast schwarz, nie #000 */
+  --farbe-text-leise: 95 90 80;
+  --farbe-text-invers: 243 239 231;
+
+  /* --- Akzent ----------------------------------------------------------- */
+  --farbe-akzent: 194 65 12; /* Terrakotta */
+  --farbe-akzent-hover: 154 52 18;
+  --farbe-akzent-flaeche: 252 233 221;
+
+  /* --- Zustände (Text auf zugehöriger Fläche) --------------------------- */
+  --farbe-erfolg: 47 107 79;
+  --farbe-erfolg-flaeche: 227 239 232;
+  --farbe-warnung: 154 52 18;
+  --farbe-warnung-flaeche: 252 233 221;
+  --farbe-info: 51 81 140;
+  --farbe-info-flaeche: 228 234 245;
+
+  /* --- Schatten --------------------------------------------------------- */
+  /* Warm getönt statt neutralgrau — grauer Schatten wirkt auf Elfenbein
+     schmutzig. Sehr flach: die Tiefe kommt vom Hintergrund, nicht vom Schlag. */
+  --schatten-karte: 0 1px 2px rgba(27, 26, 23, 0.04);
+  --schatten-schwebend: 0 8px 24px -6px rgba(27, 26, 23, 0.16);
+  --schatten-sheet: 0 -8px 32px -8px rgba(27, 26, 23, 0.18);
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
+@layer base {
+  /* Farben schon auf <html>: sonst bleibt die Wurzel auf dem
+     Browser-Standard #000 stehen — sichtbar z. B. beim Überscrollen. */
+  html {
+    /* Schriftfamilien kommen aus next/font (siehe layout.tsx). */
+    font-family: var(--schrift-text), system-ui, sans-serif;
+    background-color: rgb(var(--farbe-papier));
+    color: rgb(var(--farbe-text));
+  }
+
+  body {
+    background-color: rgb(var(--farbe-papier));
+    color: rgb(var(--farbe-text));
+  }
+
+  /* Überschriften immer Archivo, leicht negatives Tracking: das macht den
+     fetten Schnitt kompakt statt breitgelaufen. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--schrift-titel), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* Formularelemente erben die Schrift nicht automatisch. */
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+
+  /* Der iOS-Standardblau-Fokusring wird überall durch den Akzent ersetzt. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--farbe-akzent));
+    outline-offset: 2px;
+  }
+
+  /* Zahlen sollen beim Tippen und Filtern nicht springen. */
+  .zahl {
+    font-family: var(--schrift-zahl), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
 }

@@ -8,37 +8,64 @@ import { forwardRef } from "react";
  *   Fokussieren automatisch ins Feld hinein und das Layout springt.
  * - Label immer sichtbar (kein Placeholder-als-Label): im Sonnenlicht und beim
  *   schnellen Ausfüllen ist ein verschwindendes Label unbrauchbar.
+ * - Rahmen genau 1px in `linie`; im Fokus wird er dunkel statt blau.
  */
 
 const FELD_KLASSEN = [
-  "w-full min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2",
-  "text-base text-slate-900 placeholder:text-slate-400",
-  "focus:border-brand-600 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-brand-600/30",
-  "disabled:bg-slate-100",
+  "w-full min-h-11 rounded-feld border border-linie bg-flaeche px-3 py-2",
+  "text-base text-text placeholder:text-text-leise/60",
+  "transition-colors focus:border-text focus:outline-none",
+  "disabled:bg-papier disabled:text-text-leise",
 ].join(" ");
+
+function Label({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-medium text-text-leise">
+      {children}
+    </label>
+  );
+}
+
+function Hinweis({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs leading-snug text-text-leise">{children}</p>;
+}
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   hinweis?: string;
+  /** Zahlenfeld: Monoschrift, damit Beträge und Mengen sauber stehen. */
+  zahl?: boolean;
+  /** Feste Einheit rechts im Feld, z. B. "€". */
+  suffix?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, hinweis, id, className = "", ...props },
+  { label, hinweis, zahl, suffix, id, className = "", ...props },
   ref,
 ) {
   const feldId = id ?? props.name;
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={feldId} className="text-sm font-medium text-slate-700">
-        {label}
-      </label>
-      <input
-        ref={ref}
-        id={feldId}
-        className={`${FELD_KLASSEN} ${className}`}
-        {...props}
-      />
-      {hinweis ? <p className="text-xs text-slate-500">{hinweis}</p> : null}
+      <Label htmlFor={feldId}>{label}</Label>
+      <div className="relative">
+        <input
+          ref={ref}
+          id={feldId}
+          className={[
+            FELD_KLASSEN,
+            zahl ? "zahl" : "",
+            suffix ? "pr-9" : "",
+            className,
+          ].join(" ")}
+          {...props}
+        />
+        {suffix ? (
+          <span className="zahl pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-leise">
+            {suffix}
+          </span>
+        ) : null}
+      </div>
+      {hinweis ? <Hinweis>{hinweis}</Hinweis> : null}
     </div>
   );
 });
@@ -52,9 +79,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const feldId = id ?? props.name;
     return (
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={feldId} className="text-sm font-medium text-slate-700">
-          {label}
-        </label>
+        <Label htmlFor={feldId}>{label}</Label>
         <select
           ref={ref}
           id={feldId}
@@ -71,22 +96,22 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
+  hinweis?: string;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  function Textarea({ label, id, className = "", ...props }, ref) {
+  function Textarea({ label, hinweis, id, className = "", ...props }, ref) {
     const feldId = id ?? props.name;
     return (
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={feldId} className="text-sm font-medium text-slate-700">
-          {label}
-        </label>
+        <Label htmlFor={feldId}>{label}</Label>
         <textarea
           ref={ref}
           id={feldId}
           className={`${FELD_KLASSEN} min-h-24 ${className}`}
           {...props}
         />
+        {hinweis ? <Hinweis>{hinweis}</Hinweis> : null}
       </div>
     );
   },
@@ -102,14 +127,41 @@ export function Meldung({
 }) {
   const stil =
     art === "fehler"
-      ? "border-red-200 bg-red-50 text-red-800"
-      : "border-green-200 bg-green-50 text-green-800";
+      ? "bg-warnung-flaeche text-warnung"
+      : "bg-erfolg-flaeche text-erfolg";
   return (
     <p
       role={art === "fehler" ? "alert" : "status"}
-      className={`rounded-xl border px-3 py-2 text-sm ${stil}`}
+      className={`rounded-feld px-3 py-2.5 text-sm ${stil}`}
     >
       {children}
     </p>
+  );
+}
+
+/**
+ * Statusplakette (Entwurf, Gesendet, Angenommen, Nachfassen).
+ * Eigene Komponente, damit dieselben Zustandsfarben überall gleich aussehen.
+ */
+export function Plakette({
+  ton = "neutral",
+  children,
+}: {
+  ton?: "neutral" | "erfolg" | "warnung" | "info";
+  children: React.ReactNode;
+}) {
+  const toene = {
+    neutral: "bg-papier text-text-leise",
+    erfolg: "bg-erfolg-flaeche text-erfolg",
+    warnung: "bg-warnung-flaeche text-warnung",
+    info: "bg-info-flaeche text-info",
+  } as const;
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${toene[ton]}`}
+    >
+      {children}
+    </span>
   );
 }

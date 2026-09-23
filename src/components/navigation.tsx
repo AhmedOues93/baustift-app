@@ -14,8 +14,10 @@ import {
  * Navigation — eine Definition, zwei Darstellungen.
  *
  * Mobil:   feste Leiste unten, wie in einer nativen App. Der Daumen erreicht
- *          den unteren Bildschirmrand, den oberen nicht.
- * Desktop: dieselben Einträge als Sidebar links (ab `lg`).
+ *          den unteren Bildschirmrand, den oberen nicht. Aktiv = Terrakotta
+ *          plus fettes Label; inaktiv = leises Grau.
+ * Desktop: dieselben Einträge in einer dunklen Sidebar (ab `lg`). Die dunkle
+ *          Fläche trennt Navigation und Inhalt ohne eine einzige Linie.
  *
  * Die Einträge stehen bewusst nur einmal hier — beide Varianten rendern aus
  * derselben Liste, damit sie nicht auseinanderlaufen.
@@ -24,7 +26,7 @@ import {
 const EINTRAEGE = [
   { href: "/angebote", label: "Angebote", Icon: IconAngebote },
   { href: "/angebote/neu", label: "Neu", langLabel: "Neues Angebot", Icon: IconMikrofon },
-  { href: "/preisliste", label: "Preise", Icon: IconPreisliste },
+  { href: "/preisliste", label: "Preise", langLabel: "Preisliste", Icon: IconPreisliste },
   { href: "/einstellungen", label: "Konto", Icon: IconKonto },
 ] as const;
 
@@ -42,7 +44,7 @@ export function BottomNav() {
     <nav
       aria-label="Hauptnavigation"
       className={[
-        "fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white lg:hidden",
+        "fixed inset-x-0 bottom-0 z-40 border-t border-linie bg-flaeche lg:hidden",
         // pb-[env(safe-area-inset-bottom)]: Platz für den Home-Indicator auf
         // iPhones ohne Home-Button — sonst liegt der Tab unter der Systemleiste.
         "pb-[env(safe-area-inset-bottom)]",
@@ -59,11 +61,11 @@ export function BottomNav() {
                 // min-h-14 (56px) > die geforderten 44px: eine Tab-Leiste wird
                 // im Vorbeigehen getroffen, da ist mehr Fläche besser.
                 className={[
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2",
-                  "text-xs font-medium transition-colors",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-xs",
+                  "transition-colors",
                   aktiv
-                    ? "text-brand-700"
-                    : "text-slate-500 active:text-slate-900",
+                    ? "font-semibold text-akzent"
+                    : "font-medium text-text-leise active:text-text",
                 ].join(" ")}
               >
                 <Icon className="h-6 w-6" />
@@ -77,20 +79,20 @@ export function BottomNav() {
   );
 }
 
-/** Seitenleiste — erst ab `lg` sichtbar. */
-export function Sidebar() {
+/** Dunkle Seitenleiste — erst ab `lg` sichtbar. */
+export function Sidebar({ firma }: { firma?: string }) {
   const pfad = usePathname();
 
   return (
-    <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white lg:px-4 lg:py-6">
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col lg:bg-tief lg:px-3 lg:py-6">
       <Link
         href="/angebote"
-        className="px-2 py-2 text-lg font-bold tracking-tight text-brand-700"
+        className="px-3 py-2 font-titel text-xl font-extrabold tracking-tight text-text-invers"
       >
         Baustift
       </Link>
 
-      <ul className="mt-8 flex flex-col gap-1">
+      <ul className="mt-8 flex flex-1 flex-col gap-1">
         {EINTRAEGE.map((eintrag) => {
           const { href, label, Icon } = eintrag;
           const aktiv = istAktiv(pfad, href);
@@ -100,10 +102,10 @@ export function Sidebar() {
                 href={href}
                 aria-current={aktiv ? "page" : undefined}
                 className={[
-                  "flex min-h-11 items-center gap-3 rounded-xl px-3 text-base font-medium transition-colors",
+                  "flex min-h-11 items-center gap-3 rounded-feld px-3 text-[15px] transition-colors",
                   aktiv
-                    ? "bg-brand-50 text-brand-700"
-                    : "text-slate-700 hover:bg-slate-100",
+                    ? "bg-flaeche/10 font-semibold text-text-invers"
+                    : "font-medium text-text-invers/60 hover:bg-flaeche/5 hover:text-text-invers",
                 ].join(" ")}
               >
                 <Icon className="h-5 w-5" />
@@ -114,6 +116,17 @@ export function Sidebar() {
           );
         })}
       </ul>
+
+      {firma ? (
+        <div className="flex items-center gap-3 border-t border-text-invers/10 px-3 pt-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-akzent font-titel text-sm font-bold text-text-invers">
+            {firma.slice(0, 1).toUpperCase()}
+          </span>
+          <span className="min-w-0 truncate text-sm font-medium text-text-invers/80">
+            {firma}
+          </span>
+        </div>
+      ) : null}
     </aside>
   );
 }

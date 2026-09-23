@@ -1,7 +1,38 @@
 import type { Metadata, Viewport } from "next";
+import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
+
+/**
+ * Schriften über next/font: werden zur Bauzeit heruntergeladen und selbst
+ * ausgeliefert. Kein Request zu Google zur Laufzeit (schneller und ohne
+ * DSGVO-Diskussion), und kein Textsprung beim Laden dank `display: swap`.
+ *
+ * Die Variablen landen unten auf <html> und werden in globals.css und
+ * tailwind.config.ts benutzt.
+ */
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  variable: "--schrift-titel",
+  display: "swap",
+});
+
+const plexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--schrift-text",
+  display: "swap",
+});
+
+/** Nur für Zahlen: Preise, Summen, Mengen, Angebotsnummern. */
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--schrift-zahl",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Baustift — Angebote in Sekunden",
@@ -32,14 +63,18 @@ export const viewport: Viewport = {
   // viewport-fit=cover: Inhalt darf bis in die Display-Ecken; die Abstände
   // holen wir uns gezielt über env(safe-area-inset-*).
   viewportFit: "cover",
-  themeColor: "#2563eb",
+  // Färbt die Statusleiste auf Android in der installierten App.
+  themeColor: "#1b1a17",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="de">
+    <html
+      lang="de"
+      className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}
+    >
       <body className="min-h-screen antialiased">
         {children}
         <PwaRegister />
