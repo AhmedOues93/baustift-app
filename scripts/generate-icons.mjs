@@ -3,16 +3,17 @@
  * Node. So bleiben die Icons im Repo reproduzierbar (`npm run icons`) und wir
  * schleppen keine Design-Tools als Abhängigkeit mit.
  *
- * Motiv: ein Zimmermannsbleistift (Baustift) diagonal auf blauem Grund.
+ * Motiv: ein Zimmermannsbleistift (Baustift) mit Terrakotta-Mine auf dunklem
+ * Grund — dieselben Tokens wie in der App.
  * Gezeichnet wird per Punkt-in-Polygon-Test pro Pixel — bei 512x512 ist das
  * in wenigen Millisekunden durch.
  */
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 
-const BLAU = [37, 99, 235]; // brand-600
-const WEISS = [255, 255, 255];
-const GRAPHIT = [30, 41, 59]; // slate-800
+const GRUND = [27, 26, 23]; // --farbe-tief (fast schwarz)
+const PAPIER = [243, 239, 231]; // --farbe-papier
+const AKZENT = [194, 65, 12]; // --farbe-akzent (Terrakotta)
 
 /** Liegt (x, y) im Polygon? Standard-Ray-Casting. */
 function imPolygon(x, y, punkte) {
@@ -65,15 +66,15 @@ function zeichne(groesse, { rand = 0.18, hintergrundRadius = 0.22 } = {}) {
       const inY = Math.min(y, s - 1 - y);
       const eckenAbstand =
         inX < r && inY < r ? Math.hypot(r - inX, r - inY) : 0;
-      if (eckenAbstand <= r) farbe = BLAU;
+      if (eckenAbstand <= r) farbe = GRUND;
 
       if (farbe) {
         // Motiv nur innerhalb des sicheren Bereichs zeichnen.
         const drinnen =
           x > innen && x < s - innen && y > innen && y < s - innen;
         if (drinnen) {
-          if (imPolygon(x, y, spitze)) farbe = GRAPHIT;
-          else if (imPolygon(x, y, koerper)) farbe = WEISS;
+          if (imPolygon(x, y, spitze)) farbe = AKZENT;
+          else if (imPolygon(x, y, koerper)) farbe = PAPIER;
         }
       }
 

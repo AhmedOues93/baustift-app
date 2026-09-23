@@ -17,7 +17,7 @@ export default async function PreislistePage() {
 
   if (error) {
     return (
-      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+      <p className="rounded-karte bg-warnung-flaeche p-4 text-warnung">
         Die Preisliste konnte nicht geladen werden. Bitte Seite neu laden.
       </p>
     );

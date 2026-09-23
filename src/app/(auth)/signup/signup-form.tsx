@@ -17,9 +17,9 @@ export function SignupForm() {
   if (state.hinweis) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">E-Mail bestätigen</h1>
+        <h1 className="text-2xl">E-Mail bestätigen</h1>
         <Meldung art="erfolg">{state.hinweis}</Meldung>
-        <Link href="/login" className="text-sm font-medium text-brand-700 underline">
+        <Link href="/login" className="text-sm font-medium text-akzent underline underline-offset-2">
           Zurück zur Anmeldung
         </Link>
       </div>
@@ -29,8 +29,8 @@ export function SignupForm() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Konto anlegen</h1>
-        <p className="mt-1 text-slate-600">
+        <h1 className="text-2xl">Konto anlegen</h1>
+        <p className="mt-1 text-text-leise">
           In zwei Minuten zum ersten Angebot.
         </p>
       </div>
@@ -71,11 +71,11 @@ export function SignupForm() {
       <Trenner />
       <GoogleButton />
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="text-center text-sm text-text-leise">
         Schon registriert?{" "}
         <Link
           href="/login"
-          className="inline-block py-3.5 font-medium text-brand-700 underline"
+          className="inline-block py-3.5 font-medium text-akzent underline underline-offset-2"
         >
           Anmelden
         </Link>

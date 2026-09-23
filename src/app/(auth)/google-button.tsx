@@ -52,7 +52,7 @@ export function GoogleButton({ weiter }: { weiter?: string }) {
         <GoogleLogo />
         {laedt ? "Weiterleitung…" : "Weiter mit Google"}
       </Button>
-      {fehler ? <p className="text-sm text-red-700">{fehler}</p> : null}
+      {fehler ? <p className="text-sm text-warnung">{fehler}</p> : null}
     </div>
   );
 }

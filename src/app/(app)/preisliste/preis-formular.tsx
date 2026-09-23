@@ -62,7 +62,7 @@ export function PreisFormular({
         type="button"
         aria-label="Schliessen"
         onClick={onSchliessen}
-        className="absolute inset-0 bg-slate-900/40"
+        className="absolute inset-0 bg-tief/40"
       />
 
       <div
@@ -70,15 +70,16 @@ export function PreisFormular({
         aria-modal="true"
         aria-label={bearbeiten ? "Preis bearbeiten" : "Preis anlegen"}
         className={[
-          "relative flex max-h-[92vh] w-full flex-col overflow-y-auto bg-white",
-          "rounded-t-2xl px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4",
-          "sm:max-w-lg sm:rounded-2xl sm:p-6",
+          "relative flex max-h-[92vh] w-full flex-col overflow-y-auto bg-flaeche shadow-sheet",
+          // Nur oben gerundet: das Sheet sitzt bündig auf der Unterkante.
+          "rounded-t-sheet px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4",
+          "sm:max-w-lg sm:rounded-karte sm:p-6",
         ].join(" ")}
       >
         {/* Griff-Balken: das übliche Signal "nach unten wischen zum Schliessen". */}
-        <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />
+        <div className="mx-auto mb-4 h-1.5 w-10 shrink-0 rounded-full bg-linie sm:hidden" />
 
-        <h2 className="text-xl font-bold tracking-tight">
+        <h2 className="text-xl">
           {bearbeiten ? "Preis bearbeiten" : "Neuer Preis"}
         </h2>
 
@@ -99,6 +100,8 @@ export function PreisFormular({
               label="Preis netto"
               name="einzelpreis"
               required
+              zahl
+              suffix="€"
               // inputMode="decimal" öffnet auf dem Handy die Zifferntastatur
               // mit Komma. type="number" wäre hier falsch: das akzeptiert je
               // nach Locale kein Komma und blockt "89,50".
@@ -165,12 +168,12 @@ export function PreisFormular({
                 e.preventDefault();
               }
             }}
-            className="mt-6 border-t border-slate-200 pt-4"
+            className="mt-6 border-t border-linie pt-4"
           >
             <input type="hidden" name="id" value={eintrag.id} />
             <button
               type="submit"
-              className="min-h-11 w-full rounded-xl text-sm font-medium text-red-700 active:bg-red-50"
+              className="min-h-11 w-full rounded-feld text-sm font-medium text-warnung transition-colors active:bg-warnung-flaeche"
             >
               Diesen Preis löschen
             </button>

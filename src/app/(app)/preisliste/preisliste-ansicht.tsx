@@ -56,9 +56,10 @@ export function PreislisteAnsicht({
     <div className="flex flex-col gap-4">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Preisliste</h1>
-          <p className="text-sm text-slate-600">
-            {eintraege.length} {eintraege.length === 1 ? "Eintrag" : "Einträge"}
+          <h1 className="text-[28px] leading-none">Preisliste</h1>
+          <p className="mt-1.5 text-sm text-text-leise">
+            <span className="zahl">{eintraege.length}</span>{" "}
+            {eintraege.length === 1 ? "Eintrag" : "Einträge"}
           </p>
         </div>
         {/* Auf dem Desktop oben rechts; mobil übernimmt der FAB unten. */}
@@ -69,14 +70,14 @@ export function PreislisteAnsicht({
       </header>
 
       <div className="relative">
-        <IconSuche className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+        <IconSuche className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-leise" />
         <input
           type="search"
           value={suche}
           onChange={(e) => setSuche(e.target.value)}
           placeholder="Suchen…"
           aria-label="Preisliste durchsuchen"
-          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-3 text-base placeholder:text-slate-400 focus:border-brand-600 focus:outline focus:outline-2 focus:outline-brand-600/30"
+          className="min-h-11 w-full rounded-feld border border-linie bg-flaeche py-2 pl-11 pr-3 text-base text-text transition-colors placeholder:text-text-leise/60 focus:border-text focus:outline-none"
         />
       </div>
 
@@ -105,7 +106,9 @@ export function PreislisteAnsicht({
           onNeu={() => setSheet("neu")}
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        // pb: der FAB schwebt über der Liste und würde sonst den letzten
+        // Preis verdecken. Auf dem Desktop gibt es keinen FAB -> kein Abstand.
+        <ul className="flex flex-col gap-2 pb-20 lg:pb-0">
           {gefiltert.map((e) => (
             <PreisKarte key={e.id} eintrag={e} onBearbeiten={() => setSheet(e)} />
           ))}
@@ -117,7 +120,7 @@ export function PreislisteAnsicht({
         type="button"
         onClick={() => setSheet("neu")}
         aria-label="Neuen Preis anlegen"
-        className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg active:bg-brand-900 lg:hidden"
+        className="fixed bottom-[calc(theme(spacing.navleiste)+1rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-akzent text-text-invers shadow-schwebend transition-colors active:bg-akzent-hover lg:hidden"
       >
         <IconPlus className="h-7 w-7" />
       </button>
@@ -147,10 +150,10 @@ function Chip({
       onClick={onClick}
       aria-pressed={aktiv}
       className={[
-        "min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors",
+        "min-h-11 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
         aktiv
-          ? "border-brand-600 bg-brand-600 text-white"
-          : "border-slate-300 bg-white text-slate-700 active:bg-slate-100",
+          ? "bg-tief text-text-invers"
+          : "border border-linie bg-flaeche text-text-leise active:bg-papier",
       ].join(" ")}
     >
       {children}
@@ -166,25 +169,27 @@ function PreisKarte({
   onBearbeiten: () => void;
 }) {
   return (
-    <li className="rounded-xl border border-slate-200 bg-white">
+    <li className="overflow-hidden rounded-karte bg-flaeche shadow-karte">
       {/* Die ganze Karte ist tippbar — auf dem Handy zielt niemand auf ein
           kleines Stift-Icon. Gelöscht wird im Formular, nicht hier: ein
           "Löschen" in jeder Zeile lädt auf einem Touchscreen zum Fehlgriff ein. */}
       <button
         type="button"
         onClick={onBearbeiten}
-        className="flex min-h-14 w-full items-center gap-3 p-3 text-left"
+        className="flex min-h-14 w-full items-center gap-3 p-4 text-left transition-colors active:bg-papier"
       >
         <span className="flex-1">
-          <span className="block font-medium text-slate-900">
+          <span className="block font-medium text-text">
             {eintrag.bezeichnung}
           </span>
-          <span className="mt-0.5 block text-sm text-slate-500">
+          <span className="mt-0.5 block text-sm text-text-leise">
             {eintrag.kategorie ? `${eintrag.kategorie} · ` : ""}
             pro {EINHEIT_LABEL[eintrag.einheit]}
           </span>
         </span>
-        <span className="whitespace-nowrap font-semibold tabular-nums text-slate-900">
+        {/* Preise immer in der Monoschrift: gleiche Ziffernbreite, dadurch
+            stehen alle Beträge einer Liste exakt untereinander. */}
+        <span className="zahl shrink-0 whitespace-nowrap text-[15px] font-medium text-text">
           {formatEuro(eintrag.einzelpreis)}
         </span>
       </button>
@@ -201,16 +206,18 @@ function LeerZustand({
 }) {
   if (hatEintraege) {
     return (
-      <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-slate-600">
+      <p className="rounded-karte border border-dashed border-linie p-6 text-center text-text-leise">
         Nichts gefunden. Andere Suche probieren?
       </p>
     );
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center">
-      <p className="font-medium text-slate-900">Noch keine Preise</p>
-      <p className="mx-auto mt-1 max-w-sm text-sm text-slate-600">
+    <div className="rounded-karte border border-dashed border-linie p-8 text-center">
+      <p className="font-titel text-lg font-bold tracking-tight text-text">
+        Noch keine Preise
+      </p>
+      <p className="mx-auto mt-1.5 max-w-sm text-sm text-text-leise">
         Leg deine häufigsten Leistungen an. Baustift ordnet deine
         Sprachnachrichten später automatisch diesen Preisen zu.
       </p>

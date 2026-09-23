@@ -15,8 +15,8 @@ export function LoginForm({ weiter }: { weiter: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Anmelden</h1>
-        <p className="mt-1 text-slate-600">Weiter zu deinen Angeboten.</p>
+        <h1 className="text-2xl">Anmelden</h1>
+        <p className="mt-1 text-text-leise">Weiter zu deinen Angeboten.</p>
       </div>
 
       <form action={action} className="flex flex-col gap-4">
@@ -48,12 +48,12 @@ export function LoginForm({ weiter }: { weiter: string }) {
       <Trenner />
       <GoogleButton weiter={weiter} />
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="text-center text-sm text-text-leise">
         Noch kein Konto?{" "}
         <Link
           href="/signup"
           // inline-block + py: der Link erreicht 44px Tapp-Höhe, ohne den Satz zu sprengen
-          className="inline-block py-3.5 font-medium text-brand-700 underline"
+          className="inline-block py-3.5 font-medium text-akzent underline underline-offset-2"
         >
           Jetzt registrieren
         </Link>
@@ -76,11 +76,11 @@ function AbsendenButton() {
 export function Trenner() {
   return (
     <div className="flex items-center gap-3">
-      <span className="h-px flex-1 bg-slate-200" />
-      <span className="text-xs uppercase tracking-wide text-slate-500">
+      <span className="h-px flex-1 bg-linie" />
+      <span className="text-xs uppercase tracking-wide text-text-leise">
         oder
       </span>
-      <span className="h-px flex-1 bg-slate-200" />
+      <span className="h-px flex-1 bg-linie" />
     </div>
   );
 }

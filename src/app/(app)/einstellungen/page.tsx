@@ -18,16 +18,16 @@ export default async function EinstellungenPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold tracking-tight">Konto</h1>
+      <h1 className="text-[28px] leading-none">Konto</h1>
 
-      <dl className="rounded-xl border border-slate-200 bg-white p-4">
-        <dt className="text-sm text-slate-500">Betrieb</dt>
+      <dl className="rounded-karte bg-flaeche p-4 shadow-karte">
+        <dt className="text-sm text-text-leise">Betrieb</dt>
         <dd className="font-medium">{profil?.firma_name || "—"}</dd>
-        <dt className="mt-3 text-sm text-slate-500">E-Mail</dt>
-        <dd className="font-medium break-all">{user?.email}</dd>
+        <dt className="mt-3 text-sm text-text-leise">E-Mail</dt>
+        <dd className="break-all font-medium">{user?.email}</dd>
       </dl>
 
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-text-leise">
         Firmendaten, Logo und Steuerangaben fürs Angebots-PDF kommen als
         Nächstes.
       </p>

@@ -27,11 +27,18 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
+  // Firmenname für den Fuss der Sidebar.
+  const { data: profil } = await supabase
+    .from("profiles")
+    .select("firma_name")
+    .eq("id", user.id)
+    .maybeSingle();
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Sidebar />
+    <div className="min-h-screen bg-papier">
+      <Sidebar firma={profil?.firma_name || undefined} />
       <div className="lg:pl-64">
-        <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-4 lg:max-w-4xl lg:px-8 lg:pb-12 lg:pt-8">
+        <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-5 lg:max-w-5xl lg:px-10 lg:pb-12 lg:pt-10">
           {children}
         </main>
       </div>

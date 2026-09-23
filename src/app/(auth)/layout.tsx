@@ -2,8 +2,9 @@ import Link from "next/link";
 
 /**
  * Layout für Login/Registrierung.
- * Mobile-first: volle Breite mit 20px Rand. Ab `sm` wird der Inhalt zentriert
- * und bekommt eine Karte — mehr braucht ein Login-Screen auf dem Desktop nicht.
+ * Mobile-first: volle Breite mit 20px Rand auf Elfenbein. Ab `sm` wird der
+ * Inhalt zentriert und liegt auf einer weissen Karte — mehr braucht ein
+ * Login-Screen auf dem Desktop nicht.
  */
 export default function AuthLayout({
   children,
@@ -15,11 +16,11 @@ export default function AuthLayout({
       <div className="w-full sm:max-w-md">
         <Link
           href="/"
-          className="mb-6 inline-block py-2 text-lg font-bold tracking-tight text-brand-700"
+          className="mb-8 inline-block py-2 font-titel text-xl font-extrabold tracking-tight text-text"
         >
           Baustift
         </Link>
-        <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-8 sm:shadow-sm">
+        <div className="sm:rounded-karte sm:bg-flaeche sm:p-8 sm:shadow-karte">
           {children}
         </div>
       </div>
