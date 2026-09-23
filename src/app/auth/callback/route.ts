@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const weiter = searchParams.get("weiter") ?? "/preisliste";
+  const weiter = searchParams.get("weiter") ?? "/angebote";
   const fehler = searchParams.get("error_description");
 
   if (fehler) {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (!error) {
       // Nur interne Pfade — sonst könnte man über ?weiter=https://… umleiten.
       return NextResponse.redirect(
-        `${origin}${weiter.startsWith("/") ? weiter : "/preisliste"}`,
+        `${origin}${weiter.startsWith("/") ? weiter : "/angebote"}`,
       );
     }
   }

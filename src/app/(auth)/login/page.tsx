@@ -12,7 +12,7 @@ export default function LoginPage({
   // geschützte Seite geht — nach dem Login landet er genau dort.
   const weiter = searchParams.weiter?.startsWith("/")
     ? searchParams.weiter
-    : "/preisliste";
+    : "/angebote";
 
   return (
     <div className="flex flex-col gap-4">

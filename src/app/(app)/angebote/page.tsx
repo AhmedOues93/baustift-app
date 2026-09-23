@@ -28,10 +28,19 @@ export default async function AngebotePage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: angebote }, { data: kunden }] = await Promise.all([
+  const [{ data: angebote }, { data: kunden }, { data: profil }] = await Promise.all([
     supabase.from("angebote").select("*").order("created_at", { ascending: false }),
     supabase.from("kunden").select("id, name"),
+    supabase
+      .from("profiles")
+      .select("onboarding_am")
+      .eq("id", user.id)
+      .maybeSingle(),
   ]);
+
+  // Wer noch nie eingerichtet hat, landet hier auf einer leeren Liste und
+  // weiss nicht, dass Firmendaten und Preise fehlen. Also einmal hinführen.
+  if (profil && !profil.onboarding_am) redirect("/willkommen");
 
   const kundenName = new Map(
     ((kunden ?? []) as Pick<Kunde, "id" | "name">[]).map((k) => [k.id, k.name]),

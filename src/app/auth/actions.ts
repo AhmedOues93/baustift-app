@@ -46,7 +46,7 @@ export async function anmelden(
 ): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const passwort = String(formData.get("passwort") ?? "");
-  const weiter = String(formData.get("weiter") ?? "/preisliste");
+  const weiter = String(formData.get("weiter") ?? "/angebote");
 
   if (!email || !passwort) {
     return { fehler: "Bitte E-Mail und Passwort eingeben." };
@@ -63,7 +63,7 @@ export async function anmelden(
   // Layout neu rendern, damit der eingeloggte Zustand überall greift.
   revalidatePath("/", "layout");
   // Offene Weiterleitung verhindern: nur app-interne Pfade zulassen.
-  redirect(weiter.startsWith("/") ? weiter : "/preisliste");
+  redirect(weiter.startsWith("/") ? weiter : "/angebote");
 }
 
 export async function registrieren(
@@ -105,7 +105,8 @@ export async function registrieren(
   }
 
   revalidatePath("/", "layout");
-  redirect("/preisliste");
+  // Frisch registriert: erst einrichten, dann arbeiten.
+  redirect("/willkommen");
 }
 
 export async function abmelden() {
