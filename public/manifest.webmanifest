@@ -1,0 +1,26 @@
+{
+  "name": "Baustift — Angebote per Sprache",
+  "short_name": "Baustift",
+  "description": "Leistung einsprechen, professionelles Angebot als PDF bekommen.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "/angebote",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Neues Angebot aufnehmen",
+      "short_name": "Aufnehmen",
+      "url": "/angebote/neu",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
