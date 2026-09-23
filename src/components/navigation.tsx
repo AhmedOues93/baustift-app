@@ -85,7 +85,7 @@ export function Sidebar() {
     <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white lg:px-4 lg:py-6">
       <Link
         href="/angebote"
-        className="px-2 text-lg font-bold tracking-tight text-brand-700"
+        className="px-2 py-2 text-lg font-bold tracking-tight text-brand-700"
       >
         Baustift
       </Link>

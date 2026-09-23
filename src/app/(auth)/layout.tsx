@@ -15,7 +15,7 @@ export default function AuthLayout({
       <div className="w-full sm:max-w-md">
         <Link
           href="/"
-          className="mb-8 inline-block text-lg font-bold tracking-tight text-brand-700"
+          className="mb-6 inline-block py-2 text-lg font-bold tracking-tight text-brand-700"
         >
           Baustift
         </Link>

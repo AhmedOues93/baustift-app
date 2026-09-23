@@ -288,8 +288,14 @@ create trigger positionen_recalc
   for each row execute function public.recalc_angebot_summen();
 
 -- Fortlaufende Angebotsnummer pro Firma und Jahr: AN-2026-0001, AN-2026-0002 …
--- Wichtig: FOR UPDATE sperrt die Zeilen, damit zwei gleichzeitige Angebote nicht
--- dieselbe Nummer bekommen.
+--
+-- Zwei Details, die hier wichtig sind:
+--  - Wir nehmen das MAXIMUM der bisherigen Nummern, nicht deren Anzahl. Wird
+--    ein Angebot gelöscht, würde count(*) eine schon vergebene Nummer erneut
+--    ausgeben — und der unique(user_id, nummer) würde das Anlegen abweisen.
+--  - Der Advisory Lock serialisiert gleichzeitige Aufrufe desselben Betriebs,
+--    damit zwei parallel erstellte Angebote nicht dieselbe Nummer bekommen.
+--    Er hängt an der Transaktion und wird automatisch wieder freigegeben.
 create or replace function public.next_angebot_nummer(p_user_id uuid)
 returns text
 language plpgsql
@@ -297,15 +303,19 @@ security definer
 set search_path = public
 as $$
 declare
-  v_jahr   text := to_char(current_date, 'YYYY');
-  v_count  integer;
+  v_jahr     text := to_char(current_date, 'YYYY');
+  v_praefix  text := 'AN-' || v_jahr || '-';
+  v_hoechste integer;
 begin
-  select count(*) into v_count
-  from public.angebote
-  where user_id = p_user_id and nummer like 'AN-' || v_jahr || '-%'
-  for update;
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || v_jahr, 0));
 
-  return 'AN-' || v_jahr || '-' || lpad((v_count + 1)::text, 4, '0');
+  select coalesce(max(substring(nummer from '\d+$')::integer), 0)
+    into v_hoechste
+  from public.angebote
+  where user_id = p_user_id
+    and nummer like v_praefix || '%';
+
+  return v_praefix || lpad((v_hoechste + 1)::text, 4, '0');
 end;
 $$;
 

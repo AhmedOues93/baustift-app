@@ -35,17 +35,27 @@ export const AUTO_MATCH_SCHWELLE = 0.72;
 export const VORSCHLAG_SCHWELLE = 0.45;
 
 /**
- * Normalisiert deutschen Handwerkertext für den Vergleich:
- * Kleinschreibung, Umlaute auflösen (Größe/Groesse/Grösse → grosse),
- * Sonderzeichen raus.
+ * Normalisiert deutschen Handwerkertext für den Vergleich.
+ *
+ * Umlaute werden auf den nackten Vokal zurückgeführt (ä→a, ö→o, ü→u, ß→ss)
+ * UND die ausgeschriebene Form gleich mit (ae→a, oe→o, ue→u). Erst dadurch
+ * findet "sanitar" auch "Sanitär" — und genau so tippt man auf einer
+ * Handytastatur mit dreckigen Fingern.
+ *
+ * Dass dabei auch harmlose Wörter zusammenfallen ("neue" → "neu"), ist kein
+ * Problem: die Funktion läuft auf BEIDE Seiten des Vergleichs, gesucht wird
+ * also immer in derselben normalisierten Welt.
  */
 export function normalisiere(text: string): string {
   return text
     .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
+    .replace(/ä/g, "a")
+    .replace(/ö/g, "o")
+    .replace(/ü/g, "u")
     .replace(/ß/g, "ss")
+    .replace(/ae/g, "a")
+    .replace(/oe/g, "o")
+    .replace(/ue/g, "u")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }

@@ -50,7 +50,11 @@ export function LoginForm({ weiter }: { weiter: string }) {
 
       <p className="text-center text-sm text-slate-600">
         Noch kein Konto?{" "}
-        <Link href="/signup" className="font-medium text-brand-700 underline">
+        <Link
+          href="/signup"
+          // inline-block + py: der Link erreicht 44px Tapp-Höhe, ohne den Satz zu sprengen
+          className="inline-block py-3.5 font-medium text-brand-700 underline"
+        >
           Jetzt registrieren
         </Link>
       </p>

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
-import { preisAendern, preisAnlegen, type PreisState } from "./actions";
+import { preisAendern, preisAnlegen, preisLoeschen, type PreisState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input, Meldung, Select, Textarea } from "@/components/ui/field";
 import { formatPreisEingabe } from "@/lib/format";
@@ -153,6 +153,29 @@ export function PreisFormular({
             <SpeichernButton bearbeiten={bearbeiten} />
           </div>
         </form>
+
+        {/* Löschen liegt bewusst hier unten und als eigenes <form> (Formulare
+            dürfen nicht verschachtelt werden): weit weg von "Speichern" und
+            nur erreichbar, wenn man den Eintrag ohnehin geöffnet hat. */}
+        {eintrag ? (
+          <form
+            action={preisLoeschen}
+            onSubmit={(e) => {
+              if (!confirm(`„${eintrag.bezeichnung}" wirklich löschen?`)) {
+                e.preventDefault();
+              }
+            }}
+            className="mt-6 border-t border-slate-200 pt-4"
+          >
+            <input type="hidden" name="id" value={eintrag.id} />
+            <button
+              type="submit"
+              className="min-h-11 w-full rounded-xl text-sm font-medium text-red-700 active:bg-red-50"
+            >
+              Diesen Preis löschen
+            </button>
+          </form>
+        ) : null}
       </div>
     </div>
   );

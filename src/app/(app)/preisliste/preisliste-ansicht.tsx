@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 
-import { preisLoeschen } from "./actions";
 import { PreisFormular } from "./preis-formular";
 import { Button } from "@/components/ui/button";
 import { IconPlus, IconSuche } from "@/components/ui/icons";
@@ -168,57 +167,28 @@ function PreisKarte({
 }) {
   return (
     <li className="rounded-xl border border-slate-200 bg-white">
-      <div className="flex items-start gap-3 p-3">
-        {/* Die ganze Karte ist tippbar — auf dem Handy zielt niemand auf ein
-            kleines Stift-Icon. */}
-        <button
-          type="button"
-          onClick={onBearbeiten}
-          className="min-h-11 flex-1 text-left"
-        >
-          <p className="font-medium text-slate-900">{eintrag.bezeichnung}</p>
-          <p className="mt-0.5 text-sm text-slate-500">
+      {/* Die ganze Karte ist tippbar — auf dem Handy zielt niemand auf ein
+          kleines Stift-Icon. Gelöscht wird im Formular, nicht hier: ein
+          "Löschen" in jeder Zeile lädt auf einem Touchscreen zum Fehlgriff ein. */}
+      <button
+        type="button"
+        onClick={onBearbeiten}
+        className="flex min-h-14 w-full items-center gap-3 p-3 text-left"
+      >
+        <span className="flex-1">
+          <span className="block font-medium text-slate-900">
+            {eintrag.bezeichnung}
+          </span>
+          <span className="mt-0.5 block text-sm text-slate-500">
             {eintrag.kategorie ? `${eintrag.kategorie} · ` : ""}
             pro {EINHEIT_LABEL[eintrag.einheit]}
-          </p>
-        </button>
-
-        <div className="flex flex-col items-end gap-1">
-          <span className="whitespace-nowrap font-semibold tabular-nums text-slate-900">
-            {formatEuro(eintrag.einzelpreis)}
           </span>
-          <LoeschenButton id={eintrag.id} bezeichnung={eintrag.bezeichnung} />
-        </div>
-      </div>
-    </li>
-  );
-}
-
-function LoeschenButton({
-  id,
-  bezeichnung,
-}: {
-  id: string;
-  bezeichnung: string;
-}) {
-  return (
-    <form
-      action={preisLoeschen}
-      onSubmit={(e) => {
-        // Löschen ist nicht umkehrbar — auf dem Handy passiert ein Fehlgriff
-        // schnell, deshalb eine Rückfrage.
-        if (!confirm(`„${bezeichnung}" wirklich löschen?`)) e.preventDefault();
-      }}
-    >
-      <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
-        aria-label={`${bezeichnung} löschen`}
-        className="min-h-11 px-2 text-sm font-medium text-red-700 active:text-red-900"
-      >
-        Löschen
+        </span>
+        <span className="whitespace-nowrap font-semibold tabular-nums text-slate-900">
+          {formatEuro(eintrag.einzelpreis)}
+        </span>
       </button>
-    </form>
+    </li>
   );
 }
 

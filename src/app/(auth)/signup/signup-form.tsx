@@ -73,7 +73,10 @@ export function SignupForm() {
 
       <p className="text-center text-sm text-slate-600">
         Schon registriert?{" "}
-        <Link href="/login" className="font-medium text-brand-700 underline">
+        <Link
+          href="/login"
+          className="inline-block py-3.5 font-medium text-brand-700 underline"
+        >
           Anmelden
         </Link>
       </p>
