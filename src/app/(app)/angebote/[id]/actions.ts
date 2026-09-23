@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { angebotNachricht, emailVerfuegbar, sendeEmail } from "@/lib/email/senden";
+import { angebotPdfErzeugen } from "@/lib/pdf/erzeugen";
 import { createClient } from "@/lib/supabase/server";
 import type { AngebotStatus, Einheit } from "@/types/database";
 
@@ -171,6 +173,59 @@ export async function statusSetzen(
   revalidatePath(`/angebote/${angebotId}`);
   revalidatePath("/angebote");
   return {};
+}
+
+/**
+ * Angebot als PDF an den Kunden schicken.
+ *
+ * Der Versand setzt den Status gleich mit auf "gesendet" — das ist derselbe
+ * Vorgang, und zwei Knöpfe dafür wären nur eine Gelegenheit, den zweiten zu
+ * vergessen und das Angebot später im Entwurf wiederzufinden.
+ *
+ * Antworten gehen per reply-to an den Handwerker, nicht an uns.
+ */
+export async function angebotVersenden(
+  angebotId: string,
+): Promise<{ fehler?: string; erfolg?: string }> {
+  if (!emailVerfuegbar()) {
+    return { fehler: "Der E-Mail-Versand ist nicht eingerichtet." };
+  }
+
+  const supabase = createClient();
+  const ergebnis = await angebotPdfErzeugen(supabase, angebotId);
+  if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };
+
+  const { angebot, kunde, firma, puffer, dateiname } = ergebnis;
+
+  if (!kunde?.email) {
+    return {
+      fehler:
+        "Für diesen Kunden ist keine E-Mail-Adresse hinterlegt. Trag sie beim Kunden ein.",
+    };
+  }
+
+  const { betreff, text } = angebotNachricht({
+    firmaName: firma.firma_name,
+    nummer: angebot.nummer,
+    titel: angebot.titel,
+    gueltigBis: angebot.gueltig_bis,
+    ansprechpartner: kunde.ansprechpartner,
+    telefon: firma.telefon,
+  });
+
+  const versand = await sendeEmail({
+    an: kunde.email,
+    betreff,
+    text,
+    antwortAn: firma.email ?? undefined,
+    anhaenge: [{ dateiname, inhalt: puffer }],
+  });
+
+  if (versand.fehler) return { fehler: versand.fehler };
+
+  await statusSetzen(angebotId, "gesendet");
+
+  return { erfolg: `Angebot an ${kunde.email} verschickt.` };
 }
 
 export async function angebotLoeschen(formData: FormData): Promise<void> {

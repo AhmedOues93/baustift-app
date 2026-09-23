@@ -20,6 +20,15 @@ export type AngebotStatus =
   | "abgelehnt"
   | "nachfassen";
 
+export type RechnungStatus = "entwurf" | "gestellt" | "bezahlt" | "storniert";
+
+export const RECHNUNG_STATUS_LABEL: Record<RechnungStatus, string> = {
+  entwurf: "Entwurf",
+  gestellt: "Gestellt",
+  bezahlt: "Bezahlt",
+  storniert: "Storniert",
+};
+
 export type Einheit =
   | "stk"
   | "m"
@@ -74,6 +83,7 @@ export type Profile = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string;
+  onboarding_am: string | null;
   av_zugestimmt_am: string | null;
   agb_zugestimmt_am: string | null;
   created_at: string;
@@ -151,6 +161,48 @@ export type Position = {
   updated_at: string;
 };
 
+export type Rechnung = {
+  id: string;
+  user_id: string;
+  kunde_id: string | null;
+  angebot_id: string | null;
+  nummer: string;
+  titel: string;
+  status: RechnungStatus;
+  datum: string;
+  leistung_von: string | null;
+  leistung_bis: string | null;
+  zahlungsziel_tage: number;
+  faellig_am: string | null;
+  netto: number;
+  mwst_satz: number;
+  mwst_betrag: number;
+  brutto: number;
+  notiz: string | null;
+  /** Gesetzt = unveränderlich (Trigger in 0005_rechnungen.sql). */
+  festgeschrieben_am: string | null;
+  bezahlt_am: string | null;
+  storniert_am: string | null;
+  storniert_durch: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RechnungPosition = {
+  id: string;
+  rechnung_id: string;
+  pos_nr: number;
+  bezeichnung: string;
+  beschreibung: string | null;
+  menge: number;
+  einheit: Einheit;
+  einzelpreis: number;
+  /** Von Postgres berechnet. */
+  gesamtpreis: number;
+  created_at: string;
+  updated_at: string;
+};
+
 /** Ein KI-Lauf (Whisper oder Claude) — Grundlage für Kontingent und Marge. */
 export type KiNutzung = {
   id: string;
@@ -211,6 +263,21 @@ export type Database = {
         Update: Partial<KiNutzung>;
         Relationships: [];
       };
+      rechnungen: {
+        Row: Rechnung;
+        Insert: Omit<Rechnung, "id" | "created_at" | "updated_at"> & { id?: string };
+        Update: Partial<Rechnung>;
+        Relationships: [];
+      };
+      rechnung_positionen: {
+        Row: RechnungPosition;
+        Insert: Omit<
+          RechnungPosition,
+          "id" | "gesamtpreis" | "created_at" | "updated_at"
+        > & { id?: string };
+        Update: Partial<Omit<RechnungPosition, "gesamtpreis">>;
+        Relationships: [];
+      };
       positionen: {
         Row: Position;
         Insert: Omit<Position, "id" | "gesamtpreis" | "created_at" | "updated_at"> & {
@@ -226,6 +293,10 @@ export type Database = {
     };
     Functions: {
       next_angebot_nummer: {
+        Args: { p_user_id: string };
+        Returns: string;
+      };
+      next_rechnung_nummer: {
         Args: { p_user_id: string };
         Returns: string;
       };
@@ -247,6 +318,7 @@ export type Database = {
     };
     Enums: {
       angebot_status: AngebotStatus;
+      rechnung_status: RechnungStatus;
       einheit: Einheit;
     };
     CompositeTypes: {

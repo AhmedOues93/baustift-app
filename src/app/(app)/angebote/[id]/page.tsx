@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AngebotEditor } from "./angebot-editor";
 import { IconZurueck } from "@/components/ui/icons";
+import { emailVerfuegbar } from "@/lib/email/senden";
 import { createClient } from "@/lib/supabase/server";
 import type { Angebot, Kunde, Position } from "@/types/database";
 
@@ -48,6 +49,7 @@ export default async function AngebotPage({
         angebot={angebot as Angebot}
         positionen={(positionen ?? []) as Position[]}
         kunden={(kunden ?? []) as Kunde[]}
+        versandMoeglich={emailVerfuegbar()}
       />
     </div>
   );

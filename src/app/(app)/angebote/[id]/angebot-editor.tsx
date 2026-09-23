@@ -3,9 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { angebotSpeichern, statusSetzen, type PositionEingabe } from "./actions";
+import {
+  angebotSpeichern,
+  angebotVersenden,
+  statusSetzen,
+  type PositionEingabe,
+} from "./actions";
 import { Button } from "@/components/ui/button";
-import { Plakette } from "@/components/ui/field";
+import { Meldung, Plakette } from "@/components/ui/field";
 import { IconKreuz, IconPdf, IconPlus, IconSenden } from "@/components/ui/icons";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
 import {
@@ -44,10 +49,13 @@ export function AngebotEditor({
   angebot,
   positionen,
   kunden,
+  versandMoeglich,
 }: {
   angebot: Angebot;
   positionen: Position[];
   kunden: Kunde[];
+  /** Ist der E-Mail-Versand überhaupt eingerichtet? */
+  versandMoeglich: boolean;
 }) {
   const router = useRouter();
 
@@ -72,6 +80,9 @@ export function AngebotEditor({
     "rein",
   );
   const [statusPending, statusStarten] = useTransition();
+  const [versandMeldung, setVersandMeldung] = useState<
+    { art: "fehler" | "erfolg"; text: string } | null
+  >(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Beim ersten Rendern nicht speichern — sonst schreibt jedes Öffnen.
   const ersterLauf = useRef(true);
@@ -174,6 +185,24 @@ export function AngebotEditor({
       router.refresh();
     });
   }
+
+  function versenden() {
+    statusStarten(async () => {
+      // Erst speichern: sonst geht ein PDF raus, das nicht dem entspricht,
+      // was gerade auf dem Bildschirm steht.
+      await speichern();
+      const ergebnis = await angebotVersenden(angebot.id);
+      setVersandMeldung(
+        ergebnis.fehler
+          ? { art: "fehler", text: ergebnis.fehler }
+          : { art: "erfolg", text: ergebnis.erfolg ?? "Verschickt." },
+      );
+      router.refresh();
+    });
+  }
+
+  const kunde = kunden.find((k) => k.id === kundeId);
+  const kannVersenden = versandMoeglich && Boolean(kunde?.email);
 
   return (
     <div className="flex flex-col gap-4">
@@ -299,6 +328,10 @@ export function AngebotEditor({
         ) : null}
       </section>
 
+      {versandMeldung ? (
+        <Meldung art={versandMeldung.art}>{versandMeldung.text}</Meldung>
+      ) : null}
+
       {/* Aktionen -------------------------------------------------------------
           Klebt über der Tab-Leiste: die Hauptaktion eines Angebots darf nicht
           am Ende einer zwei Bildschirme langen Seite versteckt sein. Auf dem
@@ -320,10 +353,14 @@ export function AngebotEditor({
             variante="akzent"
             className="flex-1"
             disabled={statusPending}
-            onClick={() => statusAendern("gesendet")}
+            onClick={kannVersenden ? versenden : () => statusAendern("gesendet")}
           >
             <IconSenden className="h-5 w-5" />
-            Als gesendet markieren
+            {statusPending
+              ? "Einen Moment…"
+              : kannVersenden
+                ? "Per E-Mail senden"
+                : "Als gesendet markieren"}
           </Button>
         ) : (
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">

@@ -156,3 +156,99 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 5. Rechnungen: Nummernkreis und Unveränderlichkeit
+-- =========================================================================
+set role app_user;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+do $$
+declare
+  v_nr      text;
+  v_re      uuid;
+  v_netto   numeric;
+  v_fehler  boolean;
+begin
+  v_nr := public.next_rechnung_nummer('11111111-1111-1111-1111-111111111111');
+  if v_nr !~ '^RE-\d{4}-0001$' then
+    raise exception 'FEHLER: unerwartete Rechnungsnummer %', v_nr;
+  end if;
+
+  insert into public.rechnungen (user_id, nummer, titel, zahlungsziel_tage)
+  values ('11111111-1111-1111-1111-111111111111', v_nr, 'Badsanierung', 14)
+  returning id into v_re;
+
+  insert into public.rechnung_positionen (rechnung_id, pos_nr, bezeichnung, menge, einheit, einzelpreis)
+  values (v_re, 1, 'Fliesen verlegen', 8, 'm2', 52.00);
+
+  select netto into v_netto from public.rechnungen where id = v_re;
+  if v_netto <> 416.00 then
+    raise exception 'FEHLER: Rechnungssumme falsch: %', v_netto;
+  end if;
+  raise notice '9. Rechnung % angelegt -> netto % (automatisch)', v_nr, v_netto;
+
+  -- Festschreiben
+  update public.rechnungen
+  set status = 'gestellt', festgeschrieben_am = now()
+  where id = v_re;
+
+  -- Ab jetzt darf sich der Betrag NICHT mehr ändern.
+  v_fehler := false;
+  begin
+    update public.rechnungen set netto = 1.00 where id = v_re;
+  exception when check_violation then
+    v_fehler := true;
+  end;
+  if not v_fehler then
+    raise exception 'SCHWERER FEHLER: gestellte Rechnung liess sich ändern';
+  end if;
+
+  -- Auch die Positionen sind zu.
+  v_fehler := false;
+  begin
+    update public.rechnung_positionen set einzelpreis = 1 where rechnung_id = v_re;
+  exception when check_violation then
+    v_fehler := true;
+  end;
+  if not v_fehler then
+    raise exception 'SCHWERER FEHLER: Positionen einer gestellten Rechnung liessen sich ändern';
+  end if;
+
+  -- Löschen einer Position ebenfalls nicht.
+  v_fehler := false;
+  begin
+    delete from public.rechnung_positionen where rechnung_id = v_re;
+  exception when check_violation then
+    v_fehler := true;
+  end;
+  if not v_fehler then
+    raise exception 'SCHWERER FEHLER: Position einer gestellten Rechnung liess sich löschen';
+  end if;
+
+  raise notice '10. Gestellte Rechnung ist unveränderlich (Betrag, Positionen, Löschen)';
+
+  -- Als bezahlt markieren muss weiterhin gehen.
+  update public.rechnungen set status = 'bezahlt', bezahlt_am = now() where id = v_re;
+  raise notice '11. "Bezahlt" lässt sich trotzdem setzen';
+
+  -- Die nächste Nummer zählt weiter, ohne Lücke.
+  if public.next_rechnung_nummer('11111111-1111-1111-1111-111111111111') !~ '0002$' then
+    raise exception 'FEHLER: Rechnungsnummer zählt nicht fortlaufend weiter';
+  end if;
+  raise notice '12. Nächste Nummer ist fortlaufend';
+end $$;
+
+-- RLS auch hier prüfen.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare v int;
+begin
+  select count(*) into v from public.rechnungen;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Rechnungen sichtbar (%)', v; end if;
+  select count(*) into v from public.rechnung_positionen;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Rechnungspositionen sichtbar (%)', v; end if;
+  raise notice '13. RLS -> fremder Betrieb sieht keine Rechnungen';
+end $$;
+
+reset role;
