@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { ImportFormular } from "./import-formular";
 import { PreisFormular } from "./preis-formular";
 import { Button } from "@/components/ui/button";
 import { IconPlus, IconSuche } from "@/components/ui/icons";
@@ -28,6 +29,7 @@ export function PreislisteAnsicht({
   const [kategorie, setKategorie] = useState<string | null>(null);
   // null = Sheet zu, "neu" = Anlegen, Eintrag = Bearbeiten
   const [sheet, setSheet] = useState<"neu" | PreislisteEintrag | null>(null);
+  const [importSheet, setImportSheet] = useState(false);
 
   const kategorien = useMemo(() => {
     const set = new Set<string>();
@@ -63,10 +65,15 @@ export function PreislisteAnsicht({
           </p>
         </div>
         {/* Auf dem Desktop oben rechts; mobil übernimmt der FAB unten. */}
-        <Button className="hidden lg:inline-flex" onClick={() => setSheet("neu")}>
-          <IconPlus className="h-5 w-5" />
-          Neuer Preis
-        </Button>
+        <div className="hidden gap-2 lg:flex">
+          <Button variante="sekundaer" onClick={() => setImportSheet(true)}>
+            Importieren
+          </Button>
+          <Button onClick={() => setSheet("neu")}>
+            <IconPlus className="h-5 w-5" />
+            Neuer Preis
+          </Button>
+        </div>
       </header>
 
       <div className="relative">
@@ -104,6 +111,7 @@ export function PreislisteAnsicht({
         <LeerZustand
           hatEintraege={eintraege.length > 0}
           onNeu={() => setSheet("neu")}
+          onImport={() => setImportSheet(true)}
         />
       ) : (
         // pb: der FAB schwebt über der Liste und würde sonst den letzten
@@ -124,6 +132,10 @@ export function PreislisteAnsicht({
       >
         <IconPlus className="h-7 w-7" />
       </button>
+
+      {importSheet ? (
+        <ImportFormular onSchliessen={() => setImportSheet(false)} />
+      ) : null}
 
       {sheet ? (
         <PreisFormular
@@ -200,9 +212,11 @@ function PreisKarte({
 function LeerZustand({
   hatEintraege,
   onNeu,
+  onImport,
 }: {
   hatEintraege: boolean;
   onNeu: () => void;
+  onImport: () => void;
 }) {
   if (hatEintraege) {
     return (
@@ -221,10 +235,15 @@ function LeerZustand({
         Leg deine häufigsten Leistungen an. Baustift ordnet deine
         Sprachnachrichten später automatisch diesen Preisen zu.
       </p>
-      <Button className="mt-4" onClick={onNeu}>
-        <IconPlus className="h-5 w-5" />
-        Ersten Preis anlegen
-      </Button>
+      <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+        <Button onClick={onNeu}>
+          <IconPlus className="h-5 w-5" />
+          Ersten Preis anlegen
+        </Button>
+        <Button variante="sekundaer" onClick={onImport}>
+          Aus Excel importieren
+        </Button>
+      </div>
     </div>
   );
 }

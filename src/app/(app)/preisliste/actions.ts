@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { parsePreis } from "@/lib/format";
+import { parseCsv } from "@/lib/preisliste-import";
 import { createClient } from "@/lib/supabase/server";
 import type { Einheit } from "@/types/database";
 
@@ -116,6 +117,57 @@ export async function preisAendern(
 
   revalidatePath("/preisliste");
   return { erfolg: "Änderung gespeichert." };
+}
+
+/**
+ * Preisliste aus einer CSV-Datei übernehmen.
+ *
+ * Bewusst additiv: vorhandene Einträge bleiben stehen. Ein Import, der die
+ * gepflegte Liste ersetzt, ist beim ersten Fehlversuch ein Datenverlust —
+ * doppelte Zeilen sind dagegen in zwei Minuten gelöscht.
+ */
+export async function preislisteImportieren(
+  _state: PreisState,
+  formData: FormData,
+): Promise<PreisState> {
+  const datei = formData.get("datei");
+  if (!(datei instanceof File) || datei.size === 0) {
+    return { fehler: "Bitte eine CSV-Datei auswählen." };
+  }
+  if (datei.size > 2 * 1024 * 1024) {
+    return { fehler: "Die Datei ist zu gross (max. 2 MB)." };
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+
+  const { zeilen, fehler } = parseCsv(await datei.text());
+
+  if (zeilen.length === 0) {
+    return {
+      fehler: fehler[0]?.grund ?? "In der Datei war keine brauchbare Zeile.",
+    };
+  }
+
+  const { error } = await supabase.from("preisliste").insert(
+    zeilen.map((z) => ({ ...z, user_id: user.id, aktiv: true })),
+  );
+
+  if (error) return { fehler: "Der Import ist fehlgeschlagen. Bitte nochmal." };
+
+  revalidatePath("/preisliste");
+
+  const uebersprungen =
+    fehler.length > 0
+      ? ` ${fehler.length} ${fehler.length === 1 ? "Zeile wurde" : "Zeilen wurden"} übersprungen.`
+      : "";
+
+  return {
+    erfolg: `${zeilen.length} ${zeilen.length === 1 ? "Preis" : "Preise"} importiert.${uebersprungen}`,
+  };
 }
 
 export async function preisLoeschen(formData: FormData): Promise<void> {

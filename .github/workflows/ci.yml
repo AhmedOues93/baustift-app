@@ -1,0 +1,65 @@
+name: CI
+
+# Läuft bei jedem Push und jedem Pull Request. Die Reihenfolge ist Absicht:
+# zuerst die schnellen Prüfungen (Lint, Typen, Unit-Tests), erst danach der
+# teure Build — so kommt die Rückmeldung bei einem Tippfehler in Sekunden.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pruefen:
+    name: Lint, Typen und Tests
+    runs-on: ubuntu-latest
+
+    # Echtes Postgres für den Schema-Test: RLS und Trigger lassen sich nicht
+    # sinnvoll nachbilden, und genau dort liegt das Risiko.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typen
+        run: npm run typecheck
+
+      - name: Unit-Tests
+        run: npm test
+
+      - name: Schema, Trigger und RLS
+        run: npm run test:db
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+
+      - name: Build
+        run: npm run build
+        env:
+          # Der Build darf keine echten Zugangsdaten brauchen. Die Prüfung
+          # der Variablen passiert absichtlich erst zur Laufzeit.
+          NEXT_PUBLIC_SUPABASE_URL: https://beispiel.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: beispiel

@@ -17,10 +17,23 @@ export function parsePreis(eingabe: string): number | null {
   const roh = eingabe.trim().replace(/\s|€/g, "");
   if (!roh) return null;
 
-  // Tausenderpunkte entfernen, Komma zum Dezimaltrenner machen.
-  const normalisiert = roh.includes(",")
-    ? roh.replace(/\./g, "").replace(",", ".")
-    : roh;
+  let normalisiert: string;
+
+  if (roh.includes(",")) {
+    // Eindeutig deutsch: Punkt ist Tausendertrenner, Komma ist Dezimaltrenner.
+    normalisiert = roh.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(roh)) {
+    // Kein Komma, aber ein Punkt vor genau drei Ziffern: "1.450" meint
+    // eintausendvierhundertfünfzig, nicht eins Komma fünfundvierzig.
+    // Ohne diese Regel wird aus einer bodengleichen Dusche für 1.450 €
+    // stillschweigend eine für 1,45 € — und niemand bemerkt es, bis der
+    // Kunde unterschreibt.
+    normalisiert = roh.replace(/\./g, "");
+  } else {
+    // Ein einzelner Punkt mit ein, zwei oder mehr als drei Nachkommastellen
+    // ist als Dezimaltrenner gemeint ("89.50" von einer englischen Tastatur).
+    normalisiert = roh;
+  }
 
   const zahl = Number(normalisiert);
   if (!Number.isFinite(zahl) || zahl < 0) return null;

@@ -192,7 +192,9 @@ export function AngebotEditor({
           onChange={(e) => setTitel(e.target.value)}
           aria-label="Titel des Angebots"
           placeholder="Titel, z. B. Badsanierung Lindenstr. 12"
-          className="w-full bg-transparent font-titel text-[26px] font-bold leading-tight tracking-tight text-text placeholder:text-text-leise/50 focus:outline-none"
+          // min-h-11 auch hier: der Titel sieht aus wie eine Überschrift, ist
+          // aber ein Eingabefeld und muss getroffen werden können.
+          className="min-h-11 w-full bg-transparent py-1 font-titel text-[26px] font-bold leading-tight tracking-tight text-text placeholder:text-text-leise/50 focus:outline-none"
         />
 
         <select
