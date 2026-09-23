@@ -9,9 +9,16 @@ import {
   statusSetzen,
   type PositionEingabe,
 } from "./actions";
+import { rechnungAusAngebot } from "@/app/(app)/rechnungen/actions";
 import { Button } from "@/components/ui/button";
 import { Meldung, Plakette } from "@/components/ui/field";
-import { IconKreuz, IconPdf, IconPlus, IconSenden } from "@/components/ui/icons";
+import {
+  IconKreuz,
+  IconPdf,
+  IconPlus,
+  IconRechnung,
+  IconSenden,
+} from "@/components/ui/icons";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
 import {
   ANGEBOT_STATUS_LABEL,
@@ -362,12 +369,29 @@ export function AngebotEditor({
                 ? "Per E-Mail senden"
                 : "Als gesendet markieren"}
           </Button>
+        ) : angebot.status === "angenommen" ? (
+          // Auftrag erhalten: der nächste Schritt ist die Rechnung, nicht
+          // noch ein Statuswechsel.
+          <Button
+            variante="akzent"
+            className="flex-1"
+            disabled={statusPending}
+            onClick={() =>
+              statusStarten(async () => {
+                await speichern();
+                await rechnungAusAngebot(angebot.id);
+              })
+            }
+          >
+            <IconRechnung className="h-5 w-5" />
+            In Rechnung umwandeln
+          </Button>
         ) : (
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">
             <Button
               variante="primaer"
               className="flex-1"
-              disabled={statusPending || angebot.status === "angenommen"}
+              disabled={statusPending}
               onClick={() => statusAendern("angenommen")}
             >
               Angenommen

@@ -80,6 +80,24 @@ export function IconKunden({ className = basis }: Props) {
   );
 }
 
+export function IconRechnung({ className = basis }: Props) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21z" />
+      <path d="M9 8h6M9 12h6" />
+    </svg>
+  );
+}
+
 export function IconKonto({ className = basis }: Props) {
   return (
     <svg

@@ -16,7 +16,17 @@ Positionen  ──►  Preis-Matching gegen die eigene Preisliste
    │
    ▼
 Prüfbildschirm (Mensch entscheidet)  ──►  PDF  ──►  Versand, Nachfassen
+                                                        │
+                                            angenommen  ▼
+                                                    Rechnung
 ```
+
+**Angebot und Rechnung sind getrennt** — nicht aus Ordnungsliebe, sondern
+weil ein Angebot beliebig änderbar ist und eine gestellte Rechnung nicht.
+Beim Umwandeln werden die Positionen kopiert, nicht verknüpft. Ab dem
+Festschreiben lässt die Datenbank keine Änderung mehr zu (Trigger in
+`0005_rechnungen.sql`); korrigiert wird über eine Stornorechnung mit
+eigener Nummer. Das ist im Schema-Test mit abgedeckt.
 
 **Die wichtigste Regel:** Preise kommen ausschliesslich aus der Datenbank.
 Das Antwortschema der KI hat kein Preisfeld — Claude liefert nur eine
@@ -34,6 +44,7 @@ verbindliches Angebot gelangen.
 | Extraktion | Claude (`claude-opus-5`) mit Structured Outputs |
 | PDF | `@react-pdf/renderer` |
 | Abo | Stripe (Checkout, Kundenportal, Webhook) |
+| E-Mail | Resend (optional — ohne Key läuft alles weiter) |
 
 ## Entwickeln
 
@@ -103,9 +114,10 @@ Der Code ist vollständig, diese Punkte sind es noch nicht:
 - [ ] Kostenauswertung aus `ki_nutzung` ansehen, bevor der Preis feststeht
 
 **Produkt**
-- [ ] Angebot per E-Mail versenden (aktuell: PDF öffnen und teilen)
-- [ ] Rechnungen — bewusst ausgeklammert: GoBD und E-Rechnungspflicht sind
-      ein eigenes Vorhaben, Angebote unterliegen dem nicht
+- [ ] E-Rechnung (XRechnung/ZUGFeRD als XML im PDF) — Pflicht zum Empfang
+      seit 2025, zum Ausstellen gestaffelt ab 2027. Fristen mit dem
+      Steuerberater prüfen.
+- [ ] GoBD-Export für die Betriebsprüfung (Datenträgerüberlassung)
 
 ## Kosten je Angebot
 
