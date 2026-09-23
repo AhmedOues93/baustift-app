@@ -105,12 +105,16 @@ export default async function AngebotePage({
             ton="erfolg"
           />
           {faellig.length > 0 ? (
-            <Kennzahl
-              titel="Nachfassen"
-              wert={String(faellig.length)}
-              fuss={`seit über ${NACHFASSEN_NACH_TAGEN} Tagen ohne Antwort`}
-              ton="warnung"
-            />
+            // Über die volle Breite: bei zwei Spalten bricht der Fusstext auf
+            // 390px um und die Karte steht schief neben den anderen beiden.
+            <div className="col-span-2 lg:col-span-1">
+              <Kennzahl
+                titel="Nachfassen"
+                wert={String(faellig.length)}
+                fuss={`seit über ${NACHFASSEN_NACH_TAGEN} Tagen ohne Antwort`}
+                ton="warnung"
+              />
+            </div>
           ) : null}
         </section>
       ) : null}
@@ -204,7 +208,7 @@ function Kennzahl({
   }[ton];
 
   return (
-    <div className={`rounded-karte p-4 shadow-karte ${flaeche}`}>
+    <div className={`h-full rounded-karte p-4 shadow-karte ${flaeche}`}>
       <p className={`text-sm ${ton === "neutral" ? "text-text-leise" : schrift}`}>
         {titel}
       </p>

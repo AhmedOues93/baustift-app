@@ -42,7 +42,10 @@ export default function RechtlichesLayout({
           "[&_p]:text-text-leise",
           "[&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:pl-5 [&_ul]:text-text-leise",
           "[&_a]:text-akzent [&_a]:underline [&_a]:underline-offset-2",
-          "[&_table]:w-full [&_table]:text-left [&_table]:text-sm",
+          // Die Tabelle der Auftragsverarbeiter passt auf 390px nicht in drei
+          // Spalten. Statt sie umzubauen darf sie seitlich scrollen — der
+          // Rest der Seite bleibt damit umbruchfrei.
+          "[&_table]:w-full [&_table]:min-w-[26rem] [&_table]:text-left [&_table]:text-sm",
           "[&_th]:border-b [&_th]:border-linie [&_th]:py-2 [&_th]:align-top [&_th]:font-medium",
           "[&_td]:border-b [&_td]:border-linie [&_td]:py-2 [&_td]:align-top [&_td]:text-text-leise [&_td]:pr-4",
         ].join(" ")}

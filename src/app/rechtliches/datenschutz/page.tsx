@@ -56,6 +56,10 @@ export default function DatenschutzPage() {
       </p>
 
       <h2>Empfänger und Auftragsverarbeiter</h2>
+      {/* Drei Spalten passen auf 390px nicht nebeneinander. Statt die Tabelle
+          umzubauen, scrollt sie in ihrem eigenen Kasten — die Seite selbst
+          bleibt umbruchfrei. */}
+      <div className="-mx-5 overflow-x-auto px-5">
       <table>
         <thead>
           <tr>
@@ -92,6 +96,7 @@ export default function DatenschutzPage() {
           </tr>
         </tbody>
       </table>
+      </div>
       <p>
         Mit allen Dienstleistern bestehen Verträge zur Auftragsverarbeitung.
         Inhalte, die an OpenAI und Anthropic übermittelt werden, werden dort
