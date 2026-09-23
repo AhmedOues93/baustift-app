@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { angebotSpeichern, statusSetzen, type PositionEingabe } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Plakette } from "@/components/ui/field";
-import { IconPdf, IconPlus, IconSenden } from "@/components/ui/icons";
+import { IconKreuz, IconPdf, IconPlus, IconSenden } from "@/components/ui/icons";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
 import {
   ANGEBOT_STATUS_LABEL,
@@ -176,7 +176,7 @@ export function AngebotEditor({
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Kopf ---------------------------------------------------------------- */}
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -213,20 +213,22 @@ export function AngebotEditor({
         </select>
       </header>
 
-      {/* Hinweis der KI ------------------------------------------------------ */}
+      {/* Hinweise --------------------------------------------------------------
+          Knapp gehalten: beide stehen vor den Positionen, und alles, was hier
+          Platz frisst, schiebt die eigentliche Arbeit aus dem Bild. */}
       {angebot.ki_hinweis ? (
-        <div className="rounded-karte bg-info-flaeche p-4 text-sm text-info">
-          <p className="font-medium">Anmerkung aus der Aufnahme</p>
-          <p className="mt-1">{angebot.ki_hinweis}</p>
-        </div>
+        <p className="rounded-feld bg-info-flaeche px-3 py-2.5 text-sm text-info">
+          <span className="font-medium">Aus der Aufnahme:</span>{" "}
+          {angebot.ki_hinweis}
+        </p>
       ) : null}
 
       {offeneFragen > 0 ? (
-        <div className="rounded-karte bg-warnung-flaeche p-4 text-sm text-warnung">
+        <p className="rounded-feld bg-warnung-flaeche px-3 py-2.5 text-sm text-warnung">
           <span className="zahl font-medium">{offeneFragen}</span>{" "}
-          {offeneFragen === 1 ? "Position braucht" : "Positionen brauchen"} noch
-          deinen Preis. Sie sind unten markiert.
-        </div>
+          {offeneFragen === 1 ? "Position ohne Preis" : "Positionen ohne Preis"}{" "}
+          — unten markiert.
+        </p>
       ) : null}
 
       {/* Positionen ---------------------------------------------------------- */}
@@ -270,36 +272,53 @@ export function AngebotEditor({
         </div>
       </section>
 
-      {/* Schlusstext --------------------------------------------------------- */}
-      <section className="flex flex-col gap-1.5">
-        <label htmlFor="notiz" className="text-sm font-medium text-text-leise">
-          Hinweis für den Kunden
-        </label>
-        <textarea
-          id="notiz"
-          value={notiz}
-          onChange={(e) => setNotiz(e.target.value)}
-          rows={3}
-          placeholder="Angebot gültig 30 Tage. Ausführung ca. 5 Arbeitstage nach Materiallieferung."
-          className="w-full rounded-feld border border-linie bg-flaeche p-3 text-base text-text placeholder:text-text-leise/60 focus:border-text focus:outline-none"
-        />
+      {/* Schlusstext ---------------------------------------------------------
+          Eingeklappt: den Text ändert man einmal und danach fast nie wieder.
+          Ausgeklappt kostet er auf dem Handy einen halben Bildschirm. */}
+      <section>
+        <details className="group rounded-karte bg-flaeche shadow-karte" open={!notiz}>
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-medium text-text-leise">
+            Hinweis für den Kunden
+            <span className="text-xs text-text-leise group-open:hidden">Ändern</span>
+          </summary>
+          <div className="px-4 pb-4">
+            <textarea
+              value={notiz}
+              onChange={(e) => setNotiz(e.target.value)}
+              rows={3}
+              aria-label="Hinweis für den Kunden"
+              placeholder="Angebot gültig 30 Tage. Ausführung ca. 5 Arbeitstage nach Materiallieferung."
+              className="w-full rounded-feld border border-linie bg-flaeche p-3 text-base text-text placeholder:text-text-leise/60 focus:border-text focus:outline-none"
+            />
+          </div>
+        </details>
+        {notiz ? (
+          <p className="mt-1.5 line-clamp-2 px-1 text-sm text-text-leise group-open:hidden">
+            {notiz}
+          </p>
+        ) : null}
       </section>
 
-      {/* Aktionen ------------------------------------------------------------ */}
-      <section className="flex flex-col gap-2 pb-24 lg:flex-row lg:pb-0">
+      {/* Aktionen -------------------------------------------------------------
+          Klebt über der Tab-Leiste: die Hauptaktion eines Angebots darf nicht
+          am Ende einer zwei Bildschirme langen Seite versteckt sein. Auf dem
+          Desktop steht sie normal im Fluss. */}
+      <section className="sticky bottom-[calc(theme(spacing.navleiste)+env(safe-area-inset-bottom))] z-30 -mx-4 flex gap-2 border-t border-linie bg-papier/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
         <a
           href={`/api/angebote/${angebot.id}/pdf`}
           target="_blank"
           rel="noopener"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-gross border border-linie bg-flaeche px-5 font-medium text-text transition-colors active:bg-papier"
+          aria-label="PDF öffnen"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
         >
           <IconPdf className="h-5 w-5" />
-          PDF öffnen
+          <span className="hidden sm:inline">PDF</span>
         </a>
 
         {angebot.status === "entwurf" ? (
           <Button
             variante="akzent"
+            className="flex-1"
             disabled={statusPending}
             onClick={() => statusAendern("gesendet")}
           >
@@ -350,85 +369,82 @@ function PositionsKarte({
   const [mengeText, setMengeText] = useState(formatMenge(zeile.menge));
 
   return (
+    // Zwei Zeilen statt drei: oben was, unten wie viel. Bei fünf Positionen
+    // spart das einen halben Bildschirm — und der Gesamtpreis steht direkt
+    // neben der Leistung, wo man ihn beim Überfliegen sucht.
     <article
       className={[
-        "rounded-karte p-4 shadow-karte",
+        "rounded-karte p-3 shadow-karte",
         zeile.zu_pruefen ? "bg-warnung-flaeche" : "bg-flaeche",
       ].join(" ")}
     >
-      <div className="flex items-start gap-3">
-        <span className="zahl mt-2.5 w-5 shrink-0 text-sm text-text-leise">
-          {nummer}
+      <div className="flex items-center gap-2">
+        <span className="zahl w-4 shrink-0 text-sm text-text-leise">{nummer}</span>
+        <input
+          value={zeile.bezeichnung}
+          onChange={(e) => onAendern({ bezeichnung: e.target.value })}
+          aria-label={`Leistung Position ${nummer}`}
+          placeholder="Leistung"
+          className="min-h-11 min-w-0 flex-1 rounded-feld border border-linie bg-flaeche px-3 text-base text-text placeholder:text-text-leise/60 focus:border-text focus:outline-none"
+        />
+        <span className="zahl shrink-0 whitespace-nowrap text-[15px] font-medium">
+          {formatEuro(runde(zeile.menge * zeile.einzelpreis))}
         </span>
+      </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="mt-2 grid grid-cols-[3.75rem_1fr_1fr_2.75rem] gap-2 pl-6">
+        <input
+          value={mengeText}
+          onChange={(e) => {
+            setMengeText(e.target.value);
+            const wert = parsePreis(e.target.value);
+            if (wert !== null) onAendern({ menge: wert });
+          }}
+          onBlur={() => setMengeText(formatMenge(zeile.menge))}
+          inputMode="decimal"
+          aria-label={`Menge Position ${nummer}`}
+          className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche px-1 text-center text-base text-text focus:border-text focus:outline-none"
+        />
+
+        <select
+          value={zeile.einheit}
+          onChange={(e) => onAendern({ einheit: e.target.value as Einheit })}
+          aria-label={`Einheit Position ${nummer}`}
+          className="min-h-11 w-full rounded-feld border border-linie bg-flaeche px-1.5 text-base text-text focus:border-text focus:outline-none"
+        >
+          {(Object.keys(EINHEIT_LABEL) as Einheit[]).map((e) => (
+            <option key={e} value={e}>
+              {EINHEIT_LABEL[e]}
+            </option>
+          ))}
+        </select>
+
+        <div className="relative">
           <input
-            value={zeile.bezeichnung}
-            onChange={(e) => onAendern({ bezeichnung: e.target.value })}
-            aria-label={`Leistung Position ${nummer}`}
-            placeholder="Leistung"
-            className="min-h-11 w-full rounded-feld border border-linie bg-flaeche px-3 text-base text-text placeholder:text-text-leise/60 focus:border-text focus:outline-none"
+            value={preisText}
+            onChange={(e) => {
+              setPreisText(e.target.value);
+              const wert = parsePreis(e.target.value);
+              if (wert !== null) onAendern({ einzelpreis: wert });
+            }}
+            onBlur={() => setPreisText(formatPreisEingabe(zeile.einzelpreis))}
+            inputMode="decimal"
+            aria-label={`Einzelpreis Position ${nummer}`}
+            className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche pl-1.5 pr-5 text-right text-base text-text focus:border-text focus:outline-none"
           />
-
-          <div className="grid grid-cols-[4.5rem_1fr_1fr] gap-2">
-            <input
-              value={mengeText}
-              onChange={(e) => {
-                setMengeText(e.target.value);
-                const wert = parsePreis(e.target.value);
-                if (wert !== null) onAendern({ menge: wert });
-              }}
-              onBlur={() => setMengeText(formatMenge(zeile.menge))}
-              inputMode="decimal"
-              aria-label={`Menge Position ${nummer}`}
-              className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche px-2 text-center text-base text-text focus:border-text focus:outline-none"
-            />
-
-            <select
-              value={zeile.einheit}
-              onChange={(e) => onAendern({ einheit: e.target.value as Einheit })}
-              aria-label={`Einheit Position ${nummer}`}
-              className="min-h-11 w-full rounded-feld border border-linie bg-flaeche px-2 text-base text-text focus:border-text focus:outline-none"
-            >
-              {(Object.keys(EINHEIT_LABEL) as Einheit[]).map((e) => (
-                <option key={e} value={e}>
-                  {EINHEIT_LABEL[e]}
-                </option>
-              ))}
-            </select>
-
-            <div className="relative">
-              <input
-                value={preisText}
-                onChange={(e) => {
-                  setPreisText(e.target.value);
-                  const wert = parsePreis(e.target.value);
-                  if (wert !== null) onAendern({ einzelpreis: wert });
-                }}
-                onBlur={() => setPreisText(formatPreisEingabe(zeile.einzelpreis))}
-                inputMode="decimal"
-                aria-label={`Einzelpreis Position ${nummer}`}
-                className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche pl-2 pr-6 text-right text-base text-text focus:border-text focus:outline-none"
-              />
-              <span className="zahl pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-text-leise">
-                €
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={onEntfernen}
-              className="min-h-11 -ml-1 px-1 text-sm font-medium text-text-leise transition-colors active:text-warnung"
-            >
-              Entfernen
-            </button>
-            <span className="zahl text-[15px] font-medium">
-              {formatEuro(runde(zeile.menge * zeile.einzelpreis))}
-            </span>
-          </div>
+          <span className="zahl pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-sm text-text-leise">
+            €
+          </span>
         </div>
+
+        <button
+          type="button"
+          onClick={onEntfernen}
+          aria-label={`Position ${nummer} entfernen`}
+          className="flex min-h-11 items-center justify-center rounded-feld text-text-leise transition-colors active:bg-warnung-flaeche active:text-warnung"
+        >
+          <IconKreuz className="h-5 w-5" />
+        </button>
       </div>
     </article>
   );

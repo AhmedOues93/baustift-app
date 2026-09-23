@@ -6,6 +6,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { kundeAendern, kundeAnlegen, kundeLoeschen, type KundeState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input, Meldung, Textarea } from "@/components/ui/field";
+import { Schritte } from "@/components/ui/schritte";
 import { Sheet } from "@/components/ui/sheet";
 import type { Kunde } from "@/types/database";
 
@@ -54,58 +55,80 @@ export function KundenFormular({
         ) : null
       }
     >
-      <form action={action} className="mt-4 flex flex-col gap-4">
+      <form action={action} className="mt-4">
         {kunde ? <input type="hidden" name="id" value={kunde.id} /> : null}
 
-        <Input
-          label="Name"
-          name="name"
-          required
-          defaultValue={kunde?.name}
-          placeholder="Familie Becker"
-          hinweis="Firma oder Privatperson — so steht es später im Angebot."
-        />
-        <Input
-          label="Ansprechpartner"
-          name="ansprechpartner"
-          defaultValue={kunde?.ansprechpartner ?? ""}
-        />
-        <Input
-          label="Strasse und Nr."
-          name="strasse"
-          defaultValue={kunde?.strasse ?? ""}
-          placeholder="Lindenstr. 12"
-        />
-        <div className="grid grid-cols-[7rem_1fr] gap-3">
-          <Input label="PLZ" name="plz" zahl inputMode="numeric" defaultValue={kunde?.plz ?? ""} />
-          <Input label="Ort" name="ort" defaultValue={kunde?.ort ?? ""} />
-        </div>
-        <Input
-          label="E-Mail"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoCapitalize="none"
-          defaultValue={kunde?.email ?? ""}
-          hinweis="Zum Versenden des Angebots."
-        />
-        <Input
-          label="Telefon"
-          name="telefon"
-          type="tel"
-          inputMode="tel"
-          defaultValue={kunde?.telefon ?? ""}
-        />
-        <Textarea label="Notizen" name="notizen" defaultValue={kunde?.notizen ?? ""} />
+        <Schritte
+          abbrechen={
+            <Button type="button" variante="sekundaer" onClick={onSchliessen}>
+              Abbrechen
+            </Button>
+          }
+          abschluss={<SpeichernButton bearbeiten={bearbeiten} />}
+          schritte={[
+            {
+              titel: "Wer ist der Kunde?",
+              hinweis: "Name und Anschrift stehen später im Angebot.",
+              pruefen: (fd) =>
+                String(fd.get("name") ?? "").trim()
+                  ? null
+                  : "Bitte einen Namen eingeben.",
+              inhalt: (
+                <>
+                  <Input
+                    label="Name"
+                    name="name"
+                    defaultValue={kunde?.name}
+                    placeholder="Familie Becker"
+                    hinweis="Firma oder Privatperson."
+                  />
+                  <Input
+                    label="Ansprechpartner"
+                    name="ansprechpartner"
+                    defaultValue={kunde?.ansprechpartner ?? ""}
+                  />
+                  <Input
+                    label="Strasse und Nr."
+                    name="strasse"
+                    defaultValue={kunde?.strasse ?? ""}
+                    placeholder="Lindenstr. 12"
+                  />
+                  <div className="grid grid-cols-[7rem_1fr] gap-3">
+                    <Input label="PLZ" name="plz" zahl inputMode="numeric" defaultValue={kunde?.plz ?? ""} />
+                    <Input label="Ort" name="ort" defaultValue={kunde?.ort ?? ""} />
+                  </div>
+                </>
+              ),
+            },
+            {
+              titel: "Kontakt und Notizen",
+              hinweis: "Beides ist freiwillig.",
+              inhalt: (
+                <>
+                  <Input
+                    label="E-Mail"
+                    name="email"
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    defaultValue={kunde?.email ?? ""}
+                    hinweis="Zum Versenden des Angebots."
+                  />
+                  <Input
+                    label="Telefon"
+                    name="telefon"
+                    type="tel"
+                    inputMode="tel"
+                    defaultValue={kunde?.telefon ?? ""}
+                  />
+                  <Textarea label="Notizen" name="notizen" defaultValue={kunde?.notizen ?? ""} />
 
-        {state.fehler ? <Meldung art="fehler">{state.fehler}</Meldung> : null}
-
-        <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variante="sekundaer" onClick={onSchliessen}>
-            Abbrechen
-          </Button>
-          <SpeichernButton bearbeiten={bearbeiten} />
-        </div>
+                  {state.fehler ? <Meldung art="fehler">{state.fehler}</Meldung> : null}
+                </>
+              ),
+            },
+          ]}
+        />
       </form>
     </Sheet>
   );

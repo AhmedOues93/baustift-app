@@ -6,8 +6,9 @@ import { useFormState, useFormStatus } from "react-dom";
 import { preisAendern, preisAnlegen, preisLoeschen, type PreisState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input, Meldung, Select, Textarea } from "@/components/ui/field";
+import { Schritte } from "@/components/ui/schritte";
 import { Sheet } from "@/components/ui/sheet";
-import { formatPreisEingabe } from "@/lib/format";
+import { formatPreisEingabe, parsePreis } from "@/lib/format";
 import { EINHEIT_LABEL, type Einheit, type PreislisteEintrag } from "@/types/database";
 
 /**
@@ -65,77 +66,102 @@ export function PreisFormular({
         ) : null
       }
     >
-        <form action={action} className="mt-4 flex flex-col gap-4">
+        <form action={action} className="mt-4">
           {eintrag ? <input type="hidden" name="id" value={eintrag.id} /> : null}
 
-          <Input
-            label="Bezeichnung"
-            name="bezeichnung"
-            required
-            defaultValue={eintrag?.bezeichnung}
-            placeholder="Fliesen verlegen 30x60"
+          <Schritte
+            abbrechen={
+              <Button type="button" variante="sekundaer" onClick={onSchliessen}>
+                Abbrechen
+              </Button>
+            }
+            abschluss={<SpeichernButton bearbeiten={bearbeiten} />}
+            schritte={[
+              {
+                titel: "Leistung und Preis",
+                hinweis: "Das Nötigste — der Rest ist freiwillig.",
+                pruefen: (fd) => {
+                  if (!String(fd.get("bezeichnung") ?? "").trim()) {
+                    return "Bitte eine Bezeichnung eingeben.";
+                  }
+                  if (parsePreis(String(fd.get("einzelpreis") ?? "")) === null) {
+                    return "Bitte einen gültigen Preis eingeben, z. B. 89,50.";
+                  }
+                  return null;
+                },
+                inhalt: (
+                  <>
+                    <Input
+                      label="Bezeichnung"
+                      name="bezeichnung"
+                      defaultValue={eintrag?.bezeichnung}
+                      placeholder="Fliesen verlegen 30x60"
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Preis netto"
+                        name="einzelpreis"
+                        zahl
+                        suffix="€"
+                        // inputMode="decimal" öffnet auf dem Handy die
+                        // Zifferntastatur mit Komma. type="number" wäre hier
+                        // falsch: das akzeptiert je nach Locale kein Komma.
+                        inputMode="decimal"
+                        defaultValue={eintrag ? formatPreisEingabe(eintrag.einzelpreis) : ""}
+                        placeholder="89,50"
+                      />
+                      <Select
+                        label="Einheit"
+                        name="einheit"
+                        defaultValue={eintrag?.einheit ?? "stk"}
+                      >
+                        {(Object.keys(EINHEIT_LABEL) as Einheit[]).map((e) => (
+                          <option key={e} value={e}>
+                            {EINHEIT_LABEL[e]}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <Input
+                      label="Kategorie"
+                      name="kategorie"
+                      defaultValue={eintrag?.kategorie ?? ""}
+                      placeholder="Fliesenarbeiten"
+                      hinweis="Zum Filtern in der Liste."
+                    />
+                  </>
+                ),
+              },
+              {
+                titel: "Details für die KI",
+                hinweis: "Hilft beim Zuordnen und im PDF — kann leer bleiben.",
+                inhalt: (
+                  <>
+                    <Textarea
+                      label="Beschreibung"
+                      name="beschreibung"
+                      defaultValue={eintrag?.beschreibung ?? ""}
+                      placeholder="Inkl. Kleber, Fugenmasse und Zuschnitt."
+                    />
+
+                    <Input
+                      label="Stichworte"
+                      name="stichworte"
+                      defaultValue={eintrag?.stichworte.join(", ") ?? ""}
+                      placeholder="bad fliesen, verfliesen, wandfliesen"
+                      // Diese Stichworte sind das stärkste Signal beim
+                      // Preis-Matching (siehe src/lib/ai/matching.ts).
+                      hinweis="Wörter, die du beim Diktieren benutzt. Hilft der KI, den richtigen Preis zu finden."
+                    />
+
+                    {state.fehler ? <Meldung art="fehler">{state.fehler}</Meldung> : null}
+                  </>
+                ),
+              },
+            ]}
           />
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Preis netto"
-              name="einzelpreis"
-              required
-              zahl
-              suffix="€"
-              // inputMode="decimal" öffnet auf dem Handy die Zifferntastatur
-              // mit Komma. type="number" wäre hier falsch: das akzeptiert je
-              // nach Locale kein Komma und blockt "89,50".
-              inputMode="decimal"
-              defaultValue={eintrag ? formatPreisEingabe(eintrag.einzelpreis) : ""}
-              placeholder="89,50"
-            />
-            <Select
-              label="Einheit"
-              name="einheit"
-              defaultValue={eintrag?.einheit ?? "stk"}
-            >
-              {(Object.keys(EINHEIT_LABEL) as Einheit[]).map((e) => (
-                <option key={e} value={e}>
-                  {EINHEIT_LABEL[e]}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <Input
-            label="Kategorie"
-            name="kategorie"
-            defaultValue={eintrag?.kategorie ?? ""}
-            placeholder="Fliesenarbeiten"
-            hinweis="Zum Filtern in der Liste."
-          />
-
-          <Textarea
-            label="Beschreibung"
-            name="beschreibung"
-            defaultValue={eintrag?.beschreibung ?? ""}
-            placeholder="Inkl. Kleber, Fugenmasse und Zuschnitt."
-          />
-
-          <Input
-            label="Stichworte"
-            name="stichworte"
-            defaultValue={eintrag?.stichworte.join(", ") ?? ""}
-            placeholder="bad fliesen, verfliesen, wandfliesen"
-            // Diese Stichworte sind das stärkste Signal beim Preis-Matching
-            // (siehe src/lib/ai/matching.ts) — deshalb der erklärende Hinweis.
-            hinweis="Wörter, die du beim Diktieren benutzt. Hilft der KI, den richtigen Preis zu finden."
-          />
-
-          {state.fehler ? <Meldung art="fehler">{state.fehler}</Meldung> : null}
-
-          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variante="sekundaer" onClick={onSchliessen}>
-              Abbrechen
-            </Button>
-            <SpeichernButton bearbeiten={bearbeiten} />
-          </div>
         </form>
     </Sheet>
   );
