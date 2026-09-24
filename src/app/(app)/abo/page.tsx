@@ -20,9 +20,11 @@ const LEISTUNGEN = [
 export default async function AboPage({
   searchParams,
 }: {
-  searchParams: { erfolg?: string };
+  // Seit Next 15 kommen params und searchParams als Promise.
+  searchParams: Promise<{ erfolg?: string }>;
 }) {
-  const supabase = createClient();
+  const { erfolg } = await searchParams;
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -52,7 +54,7 @@ export default async function AboPage({
 
       <h1 className="text-[28px] leading-none">Abo</h1>
 
-      {searchParams.erfolg ? (
+      {erfolg ? (
         <Meldung art="erfolg">
           Danke! Dein Abo ist aktiv. Es kann einen Moment dauern, bis alles
           umgestellt ist.

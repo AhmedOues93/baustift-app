@@ -13,9 +13,10 @@ export const metadata = { title: "Rechnung · Baustift" };
 export default async function RechnungPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const supabase = createClient();
+  const { id } = await params;
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -23,11 +24,11 @@ export default async function RechnungPage({
 
   const [{ data: rechnung }, { data: positionen }, { data: kunden }] =
     await Promise.all([
-      supabase.from("rechnungen").select("*").eq("id", params.id).maybeSingle(),
+      supabase.from("rechnungen").select("*").eq("id", id).maybeSingle(),
       supabase
         .from("rechnung_positionen")
         .select("*")
-        .eq("rechnung_id", params.id)
+        .eq("rechnung_id", id)
         .order("pos_nr"),
       supabase.from("kunden").select("*").order("name"),
     ]);

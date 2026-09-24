@@ -3,21 +3,20 @@ import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Anmelden · Baustift" };
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { weiter?: string; fehler?: string };
+  searchParams: Promise<{ weiter?: string; fehler?: string }>;
 }) {
+  const { weiter: weiterRoh, fehler } = await searchParams;
   // `weiter` setzt die Middleware, wenn jemand ohne Session auf eine
   // geschützte Seite geht — nach dem Login landet er genau dort.
-  const weiter = searchParams.weiter?.startsWith("/")
-    ? searchParams.weiter
-    : "/angebote";
+  const weiter = weiterRoh?.startsWith("/") ? weiterRoh : "/angebote";
 
   return (
     <div className="flex flex-col gap-4">
-      {searchParams.fehler ? (
-        <Meldung art="fehler">{searchParams.fehler}</Meldung>
+      {fehler ? (
+        <Meldung art="fehler">{fehler}</Meldung>
       ) : null}
       <LoginForm weiter={weiter} />
     </div>

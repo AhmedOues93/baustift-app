@@ -43,7 +43,7 @@ interface Antwort {
 }
 
 export async function POST(request: Request): Promise<NextResponse<Antwort>> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // --- 1. Wer ist das? -------------------------------------------------------
   const {

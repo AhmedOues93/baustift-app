@@ -46,7 +46,7 @@ export async function angebotSpeichern(args: {
   notiz: string | null;
   positionen: PositionEingabe[];
 }): Promise<SpeichernErgebnis> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -146,7 +146,7 @@ export async function statusSetzen(
   angebotId: string,
   status: AngebotStatus,
 ): Promise<{ fehler?: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -191,7 +191,7 @@ export async function angebotVersenden(
     return { fehler: "Der E-Mail-Versand ist nicht eingerichtet." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const ergebnis = await angebotPdfErzeugen(supabase, angebotId);
   if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };
 
@@ -232,7 +232,7 @@ export async function angebotLoeschen(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

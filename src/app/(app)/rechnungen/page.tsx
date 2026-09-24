@@ -14,7 +14,7 @@ import {
 export const metadata = { title: "Rechnungen · Baustift" };
 
 export default async function RechnungenPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

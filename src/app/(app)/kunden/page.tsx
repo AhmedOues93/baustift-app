@@ -5,7 +5,7 @@ import type { Kunde } from "@/types/database";
 export const metadata = { title: "Kunden · Baustift" };
 
 export default async function KundenPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("kunden")

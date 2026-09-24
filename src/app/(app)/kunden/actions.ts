@@ -50,7 +50,7 @@ export async function kundeAnlegen(
   const gelesen = lesen(formData);
   if ("fehler" in gelesen) return { fehler: gelesen.fehler };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -79,7 +79,7 @@ export async function kundeAendern(
   const gelesen = lesen(formData);
   if ("fehler" in gelesen) return { fehler: gelesen.fehler };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -101,7 +101,7 @@ export async function kundeLoeschen(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -13,7 +13,7 @@ export function GoogleButton({ weiter }: { weiter?: string }) {
     setLaedt(true);
     setFehler(null);
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const basis =
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
       window.location.origin;

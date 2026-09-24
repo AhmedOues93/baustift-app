@@ -11,8 +11,9 @@ import type { Database } from "@/types/database";
  * Die Session steckt in Cookies. `@supabase/ssr` liest sie hier heraus und
  * schreibt erneuerte Tokens zurück — deshalb der cookies()-Adapter.
  */
-export function createClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  // Seit Next 15 ist cookies() asynchron.
+  const cookieStore = await cookies();
 
   return createServerClient<Database>(
     publicEnv.supabaseUrl,

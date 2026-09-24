@@ -30,7 +30,7 @@ export async function einrichtungAbschliessen(
   _state: WillkommenState,
   formData: FormData,
 ): Promise<WillkommenState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -87,7 +87,7 @@ export async function einrichtungAbschliessen(
 
 /** Später einrichten — wir merken uns nur, dass der Ablauf durch ist. */
 export async function einrichtungUeberspringen(_formData: FormData): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

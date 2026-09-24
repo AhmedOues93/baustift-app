@@ -30,7 +30,7 @@ export interface RechnungState {
  * Angebot dürfen einen gestellten Beleg nicht rückwirkend verändern.
  */
 export async function rechnungAusAngebot(angebotId: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -127,7 +127,7 @@ export async function rechnungSpeichern(args: {
   zahlungszielTage: number;
   positionen: RechnungPositionEingabe[];
 }): Promise<{ fehler?: string; positionIds?: string[] }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -220,7 +220,7 @@ export async function rechnungSpeichern(args: {
 export async function rechnungStellen(
   rechnungId: string,
 ): Promise<{ fehler?: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -259,7 +259,7 @@ export async function rechnungStellen(
 export async function rechnungBezahlt(
   rechnungId: string,
 ): Promise<{ fehler?: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -289,7 +289,7 @@ export async function rechnungBezahlt(
 export async function rechnungStornieren(
   rechnungId: string,
 ): Promise<{ fehler?: string; stornoId?: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -396,7 +396,7 @@ export async function rechnungEntwurfLoeschen(formData: FormData): Promise<void>
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -424,7 +424,7 @@ export async function rechnungVersenden(
   const gestellt = await rechnungStellen(rechnungId);
   if (gestellt.fehler) return { fehler: gestellt.fehler };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const ergebnis = await rechnungPdfErzeugen(supabase, rechnungId);
   if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };
 

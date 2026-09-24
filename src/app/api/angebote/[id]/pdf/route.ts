@@ -13,9 +13,10 @@ export const runtime = "nodejs";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const ergebnis = await angebotPdfErzeugen(createClient(), params.id);
+  const { id } = await params;
+  const ergebnis = await angebotPdfErzeugen(await createClient(), id);
 
   if (ergebnis.fehler !== undefined) {
     const status = ergebnis.fehler === "Nicht angemeldet." ? 401 : 404;

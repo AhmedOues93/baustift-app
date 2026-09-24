@@ -19,7 +19,7 @@ import type {
  * Leere laufen, und ein gedrucktes Dokument darf nicht vom Netz abhängen.
  */
 async function logoLaden(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   pfad: string | null,
 ): Promise<string | null> {
   if (!pfad) return null;
@@ -37,7 +37,7 @@ async function logoLaden(
  * der Handwerker beim Herunterladen sieht.
  */
 export async function angebotPdfErzeugen(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   angebotId: string,
 ): Promise<
   | { fehler: string; puffer?: undefined }
@@ -90,7 +90,7 @@ export async function angebotPdfErzeugen(
 
 /** Dasselbe für eine Rechnung. */
 export async function rechnungPdfErzeugen(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   rechnungId: string,
 ): Promise<
   | { fehler: string; puffer?: undefined }

@@ -52,7 +52,7 @@ export async function anmelden(
     return { fehler: "Bitte E-Mail und Passwort eingeben." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password: passwort,
@@ -81,7 +81,7 @@ export async function registrieren(
     return { fehler: "Das Passwort muss mindestens 8 Zeichen haben." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password: passwort,
@@ -117,7 +117,7 @@ export async function passwortZuruecksetzen(
 
   if (!email) return { fehler: "Bitte deine E-Mail-Adresse eingeben." };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${publicEnv.siteUrl}/auth/callback?weiter=/passwort-neu`,
   });
@@ -142,7 +142,7 @@ export async function passwortAktualisieren(
   if (passwort !== bestaetigung)
     return { fehler: "Die beiden Passwoerter stimmen nicht ueberein." };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: passwort });
   if (error) return { fehler: uebersetzeFehler(error.message) };
 
@@ -151,7 +151,7 @@ export async function passwortAktualisieren(
 }
 
 export async function abmelden() {
-  const supabase = createClient();
+  const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");

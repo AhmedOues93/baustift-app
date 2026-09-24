@@ -73,7 +73,7 @@ export async function preisAnlegen(
   const gelesen = leseFormular(formData);
   if ("fehler" in gelesen) return { fehler: gelesen.fehler };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -99,7 +99,7 @@ export async function preisAendern(
   const gelesen = leseFormular(formData);
   if ("fehler" in gelesen) return { fehler: gelesen.fehler };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -138,7 +138,7 @@ export async function preislisteImportieren(
     return { fehler: "Die Datei ist zu gross (max. 2 MB)." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -174,7 +174,7 @@ export async function preisLoeschen(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

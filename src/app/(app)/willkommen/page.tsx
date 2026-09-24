@@ -7,7 +7,7 @@ import type { Profile } from "@/types/database";
 export const metadata = { title: "Einrichtung · Baustift" };
 
 export default async function WillkommenPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

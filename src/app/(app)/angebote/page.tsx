@@ -20,9 +20,10 @@ const NACHFASSEN_NACH_TAGEN = 7;
 export default async function AngebotePage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const supabase = createClient();
+  const { q } = await searchParams;
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -47,7 +48,7 @@ export default async function AngebotePage({
   );
 
   const alle = (angebote ?? []) as Angebot[];
-  const suche = (searchParams.q ?? "").trim().toLowerCase();
+  const suche = (q ?? "").trim().toLowerCase();
   const liste = suche
     ? alle.filter((a) =>
         [a.nummer, a.titel, a.kunde_id ? kundenName.get(a.kunde_id) : ""]
@@ -136,7 +137,7 @@ export default async function AngebotePage({
           <input
             type="search"
             name="q"
-            defaultValue={searchParams.q ?? ""}
+            defaultValue={q ?? ""}
             placeholder="Kunde, Projekt, Nummer…"
             aria-label="Angebote durchsuchen"
             className="min-h-11 w-full rounded-feld border border-linie bg-flaeche py-2 pl-11 pr-3 text-base text-text transition-colors placeholder:text-text-leise/60 focus:border-text focus:outline-none"

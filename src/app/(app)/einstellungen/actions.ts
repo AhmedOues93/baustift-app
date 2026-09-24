@@ -27,7 +27,7 @@ export async function firmendatenSpeichern(
   _state: FirmaState,
   formData: FormData,
 ): Promise<FirmaState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -108,7 +108,7 @@ export async function firmendatenSpeichern(
 
 /** Logo wieder entfernen. */
 export async function logoEntfernen(): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

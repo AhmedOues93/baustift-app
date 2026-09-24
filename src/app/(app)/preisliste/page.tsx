@@ -5,7 +5,7 @@ import type { PreislisteEintrag } from "@/types/database";
 export const metadata = { title: "Preisliste · Baustift" };
 
 export default async function PreislistePage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Kein `.eq("user_id", …)` nötig: RLS liefert ohnehin nur die eigenen Zeilen.
   // Wir sortieren nach Kategorie, damit die Liste ohne Filter schon geordnet ist.

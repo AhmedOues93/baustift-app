@@ -12,7 +12,7 @@ import type { Profile } from "@/types/database";
 export const metadata = { title: "Konto · Baustift" };
 
 export default async function EinstellungenPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
