@@ -83,19 +83,37 @@ export default async function AngebotePage({
         <h1 className="text-[28px] leading-none">Angebote</h1>
       </header>
 
-      {/* Die wichtigste Aktion des Produkts — gross, dunkel, immer oben. */}
+      {/* Solange noch kein Angebot existiert, ist die Hauptaktion bewusst
+          quadratisch und mittig. Sobald Arbeit vorhanden ist, wird sie kompakt
+          und macht der Liste Platz. */}
       <Link
         href="/angebote/neu"
-        className="flex items-center gap-4 rounded-tafel bg-tief p-5 text-text-invers transition-colors active:bg-text"
+        className={[
+          "relative mx-auto overflow-hidden bg-tief text-text-invers transition-all duration-500 active:bg-text",
+          alle.length === 0
+            ? "flex aspect-square w-full max-w-[22rem] flex-col items-center justify-center rounded-[2rem] p-8 text-center shadow-schwebend"
+            : "flex w-full items-center gap-4 rounded-tafel p-5",
+        ].join(" ")}
       >
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-akzent">
-          <IconMikrofon className="h-6 w-6" />
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.08]">
+          <span className="absolute -left-2 top-7 rotate-[-18deg] text-6xl">🔨</span>
+          <span className="absolute right-5 top-5 rotate-12 text-5xl">🔧</span>
+          <span className="absolute bottom-6 left-6 rotate-12 text-5xl">📐</span>
+          <span className="absolute -bottom-2 right-7 rotate-[-12deg] text-6xl">🪛</span>
         </span>
-        <span>
-          <span className="block font-titel text-lg font-bold tracking-tight">
+        <span
+          className={[
+            "relative z-10 flex shrink-0 items-center justify-center rounded-full bg-akzent",
+            alle.length === 0 ? "mb-5 h-20 w-20" : "h-12 w-12",
+          ].join(" ")}
+        >
+          <IconMikrofon className={alle.length === 0 ? "h-9 w-9" : "h-6 w-6"} />
+        </span>
+        <span className="relative z-10">
+          <span className={["block font-titel font-bold tracking-tight", alle.length === 0 ? "text-2xl" : "text-lg"].join(" ")}>
             Neues Angebot
           </span>
-          <span className="block text-sm text-text-invers/70">
+          <span className={["block text-text-invers/70", alle.length === 0 ? "mt-2 text-base" : "text-sm"].join(" ")}>
             Einsprechen — fertig in einer Minute
           </span>
         </span>
@@ -146,16 +164,16 @@ export default async function AngebotePage({
       ) : null}
 
       {liste.length === 0 ? (
-        <div className="rounded-karte border border-dashed border-linie p-8 text-center">
-          <p className="font-titel text-lg font-bold tracking-tight text-text">
-            {alle.length === 0 ? "Noch keine Angebote" : "Nichts gefunden"}
-          </p>
-          <p className="mx-auto mt-1.5 max-w-sm text-sm text-text-leise">
-            {alle.length === 0
-              ? "Sprich deine erste Leistung ein — Baustift macht ein Angebot daraus."
-              : "Andere Suche probieren?"}
-          </p>
-        </div>
+        alle.length === 0 ? null : (
+          <div className="rounded-karte border border-dashed border-linie p-8 text-center">
+            <p className="font-titel text-lg font-bold tracking-tight text-text">
+              Nichts gefunden
+            </p>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-text-leise">
+              Andere Suche probieren?
+            </p>
+          </div>
+        )
       ) : (
         <ul className="flex flex-col gap-2 pb-4">
           {liste.map((a) => (
