@@ -43,21 +43,12 @@ interface Antwort {
   fehler?: string;
 }
 
-const RATE_LIMIT_FENSTER_MS = 60_000;
+// Wie viele KI-Anfragen ein Nutzer pro Minute stellen darf. Gezählt wird in
+// der Datenbank (siehe Migration 0007), nicht im Arbeitsspeicher: auf Vercel
+// läuft die App in mehreren Instanzen, die sich keinen Speicher teilen — ein
+// Zähler im Prozess bremst dort effektiv niemanden.
 const RATE_LIMIT_MAX = 5;
-const rateLimit = new Map<string, { anzahl: number; reset: number }>();
-
-function rateLimitErlaubt(userId: string): boolean {
-  const jetzt = Date.now();
-  const alt = rateLimit.get(userId);
-  if (!alt || alt.reset <= jetzt) {
-    rateLimit.set(userId, { anzahl: 1, reset: jetzt + RATE_LIMIT_FENSTER_MS });
-    return true;
-  }
-  if (alt.anzahl >= RATE_LIMIT_MAX) return false;
-  alt.anzahl += 1;
-  return true;
-}
+const RATE_LIMIT_FENSTER_SEKUNDEN = 60;
 
 export async function POST(request: Request): Promise<NextResponse<Antwort>> {
   const supabase = await createClient();
@@ -73,10 +64,31 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
   // Zweite Schutzschicht neben dem Monatskontingent: ein eingeloggter Client
   // darf die teuren KI-Aufrufe nicht in einer engen Schleife ausloesen.
   // Das Limit ist absichtlich pro User, nicht pro IP (Mobilfunk/NAT).
-  if (!rateLimitErlaubt(user.id)) {
+  //
+  // Die Funktion zählt und trägt in einem Rutsch ein, damit zwei gleichzeitige
+  // Anfragen sich nicht beide durchmogeln. Geht der Aufruf schief, lassen wir
+  // durch: das Monatskontingent liegt ohnehin noch davor, und eine kaputte
+  // Bremse darf den Betrieb nicht lahmlegen.
+  const { data: darfAnfragen, error: bremseFehler } = await supabase.rpc(
+    "ki_anfrage_erlaubt",
+    {
+      p_user_id: user.id,
+      p_max: RATE_LIMIT_MAX,
+      p_fenster_sekunden: RATE_LIMIT_FENSTER_SEKUNDEN,
+    },
+  );
+  if (bremseFehler) {
+    protokolliereWarnung(
+      { vorgang: "angebot.anfragebremse", userId: user.id },
+      bremseFehler,
+    );
+  } else if (darfAnfragen === false) {
     return NextResponse.json(
       { fehler: "Zu viele Anfragen. Bitte eine Minute warten." },
-      { status: 429, headers: { "Retry-After": "60" } },
+      {
+        status: 429,
+        headers: { "Retry-After": String(RATE_LIMIT_FENSTER_SEKUNDEN) },
+      },
     );
   }
 

@@ -318,3 +318,59 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 7. Anfragebremse
+-- =========================================================================
+-- Kein eigener GRANT hier: die Migration gibt das Recht an `authenticated`,
+-- und app_user ist Mitglied dieser Rolle. Genau so läuft es in Supabase auch.
+set role app_user;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+do $$
+declare
+  v_ok boolean;
+  i integer;
+begin
+  -- Drei Anfragen bei einem Limit von drei müssen durchgehen.
+  for i in 1..3 loop
+    select public.ki_anfrage_erlaubt('11111111-1111-1111-1111-111111111111', 3, 60) into v_ok;
+    if not v_ok then
+      raise exception 'FEHLER: Anfrage % wurde abgewiesen, obwohl erlaubt', i;
+    end if;
+  end loop;
+
+  -- Die vierte nicht.
+  select public.ki_anfrage_erlaubt('11111111-1111-1111-1111-111111111111', 3, 60) into v_ok;
+  if v_ok then
+    raise exception 'SCHWERER FEHLER: Bremse greift nicht';
+  end if;
+
+  -- Ein anderer Betrieb ist davon nicht betroffen.
+  select public.ki_anfrage_erlaubt('22222222-2222-2222-2222-222222222222', 3, 60) into v_ok;
+  if not v_ok then
+    raise exception 'FEHLER: Bremse trifft den falschen Nutzer';
+  end if;
+
+  -- Mit kurzem Fenster ist sofort wieder Platz.
+  select public.ki_anfrage_erlaubt('11111111-1111-1111-1111-111111111111', 3, 0) into v_ok;
+  if not v_ok then
+    raise exception 'FEHLER: Fenster läuft nicht ab';
+  end if;
+
+  raise notice '17. Anfragebremse -> greift pro Nutzer und läuft ab';
+end $$;
+
+-- Der Client darf seine eigenen Einträge nicht sehen oder löschen —
+-- sonst wäre die Bremse mit einem DELETE ausgehebelt.
+do $$
+declare v int;
+begin
+  select count(*) into v from public.ki_anfragen;
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: Anfrageprotokoll ist für den Client lesbar (%)', v;
+  end if;
+  raise notice '18. Anfrageprotokoll ist für den Client unsichtbar';
+end $$;
+
+reset role;

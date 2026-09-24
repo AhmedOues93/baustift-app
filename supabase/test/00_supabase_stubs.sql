@@ -25,6 +25,11 @@ alter table storage.objects enable row level security;
 create function storage.foldername(name text) returns text[]
 language sql immutable as $$ select string_to_array(name, '/') $$;
 
+-- Supabase gibt jedem eingeloggten Client die Rolle `authenticated`. Wir
+-- bauen sie nach, damit die GRANTs aus den Migrationen hier genauso greifen.
+create role authenticated;
+
 -- Rolle, die die App benutzt (kein Superuser -> RLS greift wirklich).
 create role app_user login;
 grant usage on schema public, auth, storage to app_user;
+grant authenticated to app_user;

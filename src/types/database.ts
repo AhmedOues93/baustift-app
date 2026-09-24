@@ -352,6 +352,16 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: number;
       };
+      // Anfragebremse: zählt die KI-Anfragen des Nutzers im Zeitfenster und
+      // trägt die aktuelle gleich mit ein. false = Fenster ist voll.
+      ki_anfrage_erlaubt: {
+        Args: {
+          p_user_id: string;
+          p_max?: number;
+          p_fenster_sekunden?: number;
+        };
+        Returns: boolean;
+      };
       suche_preisliste: {
         Args: { p_suchtext: string; p_limit?: number; p_min_score?: number };
         Returns: {
