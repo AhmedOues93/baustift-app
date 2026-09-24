@@ -42,6 +42,22 @@ interface Antwort {
   fehler?: string;
 }
 
+const RATE_LIMIT_FENSTER_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
+const rateLimit = new Map<string, { anzahl: number; reset: number }>();
+
+function rateLimitErlaubt(userId: string): boolean {
+  const jetzt = Date.now();
+  const alt = rateLimit.get(userId);
+  if (!alt || alt.reset <= jetzt) {
+    rateLimit.set(userId, { anzahl: 1, reset: jetzt + RATE_LIMIT_FENSTER_MS });
+    return true;
+  }
+  if (alt.anzahl >= RATE_LIMIT_MAX) return false;
+  alt.anzahl += 1;
+  return true;
+}
+
 export async function POST(request: Request): Promise<NextResponse<Antwort>> {
   const supabase = await createClient();
 
@@ -51,6 +67,16 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ fehler: "Nicht angemeldet." }, { status: 401 });
+  }
+
+  // Zweite Schutzschicht neben dem Monatskontingent: ein eingeloggter Client
+  // darf die teuren KI-Aufrufe nicht in einer engen Schleife ausloesen.
+  // Das Limit ist absichtlich pro User, nicht pro IP (Mobilfunk/NAT).
+  if (!rateLimitErlaubt(user.id)) {
+    return NextResponse.json(
+      { fehler: "Zu viele Anfragen. Bitte eine Minute warten." },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
   }
 
   // --- 2. Kontingent ---------------------------------------------------------
