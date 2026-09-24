@@ -8,7 +8,7 @@
  */
 
 /** Zustände, die `profiles.subscription_status` annehmen kann. */
-export type AboStatus = "trial" | "aktiv" | "gekuendigt" | "pausiert";
+export type AboStatus = "trial" | "pilot" | "aktiv" | "gekuendigt" | "pausiert";
 
 /**
  * Wie viele Angebote pro Kalendermonat.
@@ -20,10 +20,20 @@ export type AboStatus = "trial" | "aktiv" | "gekuendigt" | "pausiert";
  */
 export const KONTINGENT: Record<string, number> = {
   trial: 10,
+  // Testbetrieb: bewusst hoch. Ein Pilot, der nach zehn Angeboten vor einer
+  // Bezahlschranke steht, liefert genau dann keine Daten mehr, wenn es
+  // interessant wird. Der Deckel bleibt trotzdem drin — auch ein Tester kann
+  // versehentlich eine Schleife bauen.
+  pilot: 500,
   aktiv: 200,
   gekuendigt: 0,
   pausiert: 0,
 };
+
+/** Läuft dieses Konto im Testbetrieb? Schaltet die Pilot-Ansichten frei. */
+export function istPilot(status: string): boolean {
+  return status === "pilot";
+}
 
 export const PREIS_MONATLICH_EUR = 39;
 
@@ -31,6 +41,8 @@ export function planName(status: string): string {
   switch (status) {
     case "aktiv":
       return "Baustift Pro";
+    case "pilot":
+      return "Testbetrieb";
     case "gekuendigt":
       return "Gekündigt";
     case "pausiert":

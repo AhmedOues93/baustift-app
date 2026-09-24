@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { BottomNav, Sidebar } from "@/components/navigation";
+import { PilotFeedback } from "@/components/pilot-feedback";
+import { istPilot } from "@/lib/abo";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -30,7 +32,7 @@ export default async function AppLayout({
   // Firmenname für den Fuss der Sidebar.
   const { data: profil } = await supabase
     .from("profiles")
-    .select("firma_name")
+    .select("firma_name, subscription_status")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -43,6 +45,8 @@ export default async function AppLayout({
         </main>
       </div>
       <BottomNav />
+      {/* Nur im Testbetrieb: Rückmeldungen dort einsammeln, wo sie entstehen. */}
+      {istPilot(profil?.subscription_status ?? "") ? <PilotFeedback /> : null}
     </div>
   );
 }

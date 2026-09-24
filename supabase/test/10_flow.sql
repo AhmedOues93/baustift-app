@@ -252,3 +252,69 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 6. Pilot: Feedback und Auswertung
+-- =========================================================================
+set role app_user;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+do $$
+declare
+  v_fehler boolean;
+  v_gesamt integer;
+  v_sprache integer;
+  v_pruefen integer;
+begin
+  insert into public.feedback (user_id, art, text, seite)
+  values ('11111111-1111-1111-1111-111111111111', 'problem',
+          'Das Mikro hat nichts aufgenommen.', '/angebote/neu');
+
+  -- Eine abgeschickte Rückmeldung ist ein Beleg, kein Notizzettel:
+  -- Ändern und Löschen müssen abgewiesen werden.
+  v_fehler := false;
+  begin
+    update public.feedback set text = 'doch nicht';
+    get diagnostics v_gesamt = row_count;
+    if v_gesamt > 0 then v_fehler := true; end if;
+  exception when insufficient_privilege then
+    null;
+  end;
+  if v_fehler then
+    raise exception 'FEHLER: abgeschickte Rückmeldung liess sich ändern';
+  end if;
+
+  raise notice '14. Feedback -> abgegeben, nachträglich nicht änderbar';
+
+  -- Eingabeart am Angebot festhalten und auswerten.
+  update public.angebote
+  set eingabe_art = 'sprache', aufnahme_sekunden = 48
+  where user_id = '11111111-1111-1111-1111-111111111111';
+
+  select angebote_gesamt, per_sprache, positionen_zu_pruefen
+    into v_gesamt, v_sprache, v_pruefen
+  from public.pilot_auswertung('11111111-1111-1111-1111-111111111111');
+
+  if v_gesamt < 1 or v_sprache <> v_gesamt then
+    raise exception 'FEHLER: Auswertung zählt falsch (% gesamt, % Sprache)', v_gesamt, v_sprache;
+  end if;
+
+  raise notice '15. Auswertung -> % Angebote, davon % per Sprache', v_gesamt, v_sprache;
+end $$;
+
+-- Und auch hier: fremde Rückmeldungen bleiben fremd.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare v int;
+begin
+  select count(*) into v from public.feedback;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremdes Feedback sichtbar (%)', v; end if;
+
+  select angebote_gesamt into v from public.pilot_auswertung('11111111-1111-1111-1111-111111111111');
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: Auswertung zeigt fremde Zahlen (%)', v;
+  end if;
+  raise notice '16. RLS -> weder fremdes Feedback noch fremde Auswertung';
+end $$;
+
+reset role;

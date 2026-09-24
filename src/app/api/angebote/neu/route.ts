@@ -194,6 +194,11 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       pdf_path: null,
       gesendet_am: null,
       entschieden_am: null,
+      // Für den Piloten: wie ist das Angebot entstanden? Die Kernfrage des
+      // Produkts lautet, ob wirklich gesprochen wird — ohne diese zwei
+      // Felder ist sie hinterher nicht zu beantworten.
+      eingabe_art: audioSekunden > 0 ? "sprache" : "text",
+      aufnahme_sekunden: audioSekunden > 0 ? audioSekunden : null,
     })
     .select("id")
     .single();

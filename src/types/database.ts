@@ -20,6 +20,15 @@ export type AngebotStatus =
   | "abgelehnt"
   | "nachfassen";
 
+export type EingabeArt = "sprache" | "text";
+export type FeedbackArt = "problem" | "idee" | "lob";
+
+export const FEEDBACK_ART_LABEL: Record<FeedbackArt, string> = {
+  problem: "Etwas geht nicht",
+  idee: "Idee oder Wunsch",
+  lob: "Das war gut",
+};
+
 export type RechnungStatus = "entwurf" | "gestellt" | "bezahlt" | "storniert";
 
 export const RECHNUNG_STATUS_LABEL: Record<RechnungStatus, string> = {
@@ -139,6 +148,9 @@ export type Angebot = {
   pdf_path: string | null;
   gesendet_am: string | null;
   entschieden_am: string | null;
+  /** Nur im Piloten erhoben: Sprache oder Tastatur. */
+  eingabe_art: EingabeArt | null;
+  aufnahme_sekunden: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -203,6 +215,29 @@ export type RechnungPosition = {
   updated_at: string;
 };
 
+export type Feedback = {
+  id: string;
+  user_id: string;
+  art: FeedbackArt;
+  text: string;
+  seite: string | null;
+  erledigt: boolean;
+  created_at: string;
+};
+
+/** Zahlen des Piloten, aus der Funktion pilot_auswertung. */
+export type PilotAuswertung = {
+  angebote_gesamt: number;
+  per_sprache: number;
+  per_text: number;
+  positionen_gesamt: number;
+  positionen_zu_pruefen: number;
+  sekunden_schnitt: number;
+  kosten_zehntelcent: number;
+  angebote_gesendet: number;
+  angebote_angenommen: number;
+};
+
 /** Ein KI-Lauf (Whisper oder Claude) — Grundlage für Kontingent und Marge. */
 export type KiNutzung = {
   id: string;
@@ -257,6 +292,15 @@ export type Database = {
         /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
         Relationships: [];
       };
+      feedback: {
+        Row: Feedback;
+        Insert: Omit<Feedback, "id" | "created_at" | "erledigt"> & {
+          id?: string;
+          erledigt?: boolean;
+        };
+        Update: Partial<Feedback>;
+        Relationships: [];
+      };
       ki_nutzung: {
         Row: KiNutzung;
         Insert: Omit<KiNutzung, "id" | "created_at"> & { id?: string };
@@ -300,6 +344,10 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: string;
       };
+      pilot_auswertung: {
+        Args: { p_user_id: string };
+        Returns: PilotAuswertung[];
+      };
       angebote_diesen_monat: {
         Args: { p_user_id: string };
         Returns: number;
@@ -319,6 +367,8 @@ export type Database = {
     Enums: {
       angebot_status: AngebotStatus;
       rechnung_status: RechnungStatus;
+      eingabe_art: EingabeArt;
+      feedback_art: FeedbackArt;
       einheit: Einheit;
     };
     CompositeTypes: {

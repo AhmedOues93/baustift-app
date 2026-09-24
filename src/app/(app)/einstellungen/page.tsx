@@ -6,7 +6,7 @@ import { abmelden } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Plakette } from "@/components/ui/field";
 import { createClient } from "@/lib/supabase/server";
-import { KONTINGENT, planName } from "@/lib/abo";
+import { KONTINGENT, istPilot, planName } from "@/lib/abo";
 import type { Profile } from "@/types/database";
 
 export const metadata = { title: "Konto · Baustift" };
@@ -60,11 +60,29 @@ export default async function EinstellungenPage() {
             </p>
           </div>
           <Plakette
-            ton={profil.subscription_status === "aktiv" ? "erfolg" : "warnung"}
+            ton={
+              profil.subscription_status === "aktiv"
+                ? "erfolg"
+                : istPilot(profil.subscription_status)
+                  ? "info"
+                  : "warnung"
+            }
           >
-            {profil.subscription_status === "aktiv" ? "Aktiv" : "Test"}
+            {profil.subscription_status === "aktiv"
+              ? "Aktiv"
+              : istPilot(profil.subscription_status)
+                ? "Test"
+                : "Probe"}
           </Plakette>
         </div>
+
+        {istPilot(profil.subscription_status) ? (
+          <Link href="/pilot" className="mt-4 block">
+            <Button variante="sekundaer" vollbreit>
+              Zahlen aus dem Test ansehen
+            </Button>
+          </Link>
+        ) : null}
 
         <Link href="/abo" className="mt-4 block">
           <Button variante="sekundaer" vollbreit>
