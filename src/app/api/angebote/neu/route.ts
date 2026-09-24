@@ -8,6 +8,7 @@ import {
   transkribiere,
 } from "@/lib/ai/transcribe";
 import { darfAngebotErstellen } from "@/lib/abo";
+import { protokolliereFehler, protokolliereWarnung } from "@/lib/protokoll";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { PreislisteEintrag } from "@/types/database";
 
@@ -167,7 +168,10 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       (preisliste ?? []) as PreislisteEintrag[],
     );
   } catch (fehler) {
-    console.error("[angebote/neu] Extraktion fehlgeschlagen", fehler);
+    protokolliereFehler(
+      { vorgang: "angebot.extraktion", userId: user.id },
+      fehler,
+    );
     return NextResponse.json(
       {
         fehler:
@@ -230,7 +234,10 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
     .single();
 
   if (angebotFehler || !angebot) {
-    console.error("[angebote/neu] Angebot anlegen fehlgeschlagen", angebotFehler);
+    protokolliereFehler(
+      { vorgang: "angebot.anlegen", userId: user.id },
+      angebotFehler,
+    );
     return NextResponse.json(
       { fehler: "Das Angebot konnte nicht gespeichert werden." },
       { status: 500 },
@@ -253,7 +260,14 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       })),
     );
     if (posFehler) {
-      console.error("[angebote/neu] Positionen anlegen fehlgeschlagen", posFehler);
+      protokolliereFehler(
+        {
+          vorgang: "angebot.positionen",
+          userId: user.id,
+          details: { anzahl: ergebnis.positionen.length },
+        },
+        posFehler,
+      );
     }
   }
 
@@ -296,7 +310,10 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
 
   const { error: nutzungFehler } = await admin.from("ki_nutzung").insert(nutzung);
   if (nutzungFehler) {
-    console.error("[angebote/neu] Verbrauch nicht protokolliert", nutzungFehler);
+    protokolliereWarnung(
+      { vorgang: "angebot.verbrauch", userId: user.id },
+      nutzungFehler,
+    );
   }
 
   return NextResponse.json({ angebotId: angebot.id });

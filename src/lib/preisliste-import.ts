@@ -54,7 +54,7 @@ const EINHEITEN: Record<string, Einheit> = {
 };
 
 /** Eine CSV-Zeile in Felder zerlegen, Anführungszeichen beachtet. */
-function zerlege(zeile: string, trenner: string): string[] {
+export function zerlege(zeile: string, trenner: string): string[] {
   const felder: string[] = [];
   let aktuell = "";
   let inAnfuehrung = false;
@@ -84,7 +84,7 @@ function zerlege(zeile: string, trenner: string): string[] {
  * Semikolon oder Komma? Excel schreibt im deutschsprachigen Raum Semikolon,
  * weil das Komma schon der Dezimaltrenner ist. Wir zählen einfach nach.
  */
-function erkenneTrenner(kopfzeile: string): string {
+export function erkenneTrenner(kopfzeile: string): string {
   const semikolon = (kopfzeile.match(/;/g) ?? []).length;
   const komma = (kopfzeile.match(/,/g) ?? []).length;
   const tab = (kopfzeile.match(/\t/g) ?? []).length;
@@ -92,7 +92,7 @@ function erkenneTrenner(kopfzeile: string): string {
   return semikolon >= komma ? ";" : ",";
 }
 
-function findeSpalte(kopf: string[], kandidaten: string[]): number {
+export function findeSpalte(kopf: string[], kandidaten: string[]): number {
   return kopf.findIndex((k) =>
     kandidaten.includes(k.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").trim()),
   );

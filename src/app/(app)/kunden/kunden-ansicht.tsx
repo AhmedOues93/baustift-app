@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { KundenImportFormular } from "./import-formular";
 import { KundenFormular } from "./kunden-formular";
 import { Button } from "@/components/ui/button";
 import { IconPlus, IconSuche } from "@/components/ui/icons";
@@ -11,6 +12,7 @@ import type { Kunde } from "@/types/database";
 export function KundenAnsicht({ kunden }: { kunden: Kunde[] }) {
   const [suche, setSuche] = useState("");
   const [sheet, setSheet] = useState<"neu" | Kunde | null>(null);
+  const [importSheet, setImportSheet] = useState(false);
 
   const gefiltert = useMemo(() => {
     const q = normalisiere(suche);
@@ -35,10 +37,15 @@ export function KundenAnsicht({ kunden }: { kunden: Kunde[] }) {
             {kunden.length === 1 ? "Kunde" : "Kunden"}
           </p>
         </div>
-        <Button className="hidden lg:inline-flex" onClick={() => setSheet("neu")}>
-          <IconPlus className="h-5 w-5" />
-          Neuer Kunde
-        </Button>
+        <div className="hidden gap-2 lg:flex">
+          <Button variante="sekundaer" onClick={() => setImportSheet(true)}>
+            Importieren
+          </Button>
+          <Button onClick={() => setSheet("neu")}>
+            <IconPlus className="h-5 w-5" />
+            Neuer Kunde
+          </Button>
+        </div>
       </header>
 
       <div className="relative">
@@ -64,10 +71,15 @@ export function KundenAnsicht({ kunden }: { kunden: Kunde[] }) {
               : "Andere Suche probieren?"}
           </p>
           {kunden.length === 0 ? (
-            <Button className="mt-4" onClick={() => setSheet("neu")}>
-              <IconPlus className="h-5 w-5" />
-              Ersten Kunden anlegen
-            </Button>
+            <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+              <Button onClick={() => setSheet("neu")}>
+                <IconPlus className="h-5 w-5" />
+                Ersten Kunden anlegen
+              </Button>
+              <Button variante="sekundaer" onClick={() => setImportSheet(true)}>
+                Aus Excel importieren
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : (
@@ -101,6 +113,10 @@ export function KundenAnsicht({ kunden }: { kunden: Kunde[] }) {
       >
         <IconPlus className="h-7 w-7" />
       </button>
+
+      {importSheet ? (
+        <KundenImportFormular onSchliessen={() => setImportSheet(false)} />
+      ) : null}
 
       {sheet ? (
         <KundenFormular

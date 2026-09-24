@@ -2,6 +2,8 @@ import "server-only";
 
 import { Resend } from "resend";
 
+import { protokolliereFehler } from "@/lib/protokoll";
+
 /**
  * E-Mail-Versand.
  *
@@ -48,7 +50,7 @@ export async function sendeEmail(args: {
   });
 
   if (error) {
-    console.error("[email] Versand fehlgeschlagen", error);
+    protokolliereFehler({ vorgang: "email.versand" }, error);
     return { fehler: "Die E-Mail konnte nicht zugestellt werden." };
   }
 

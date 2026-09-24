@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { protokolliereFehler } from "@/lib/protokoll";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 /**
@@ -59,7 +60,7 @@ export async function kontoLoeschen(
   const { error } = await admin.auth.admin.deleteUser(user.id);
 
   if (error) {
-    console.error("[konto] Löschen fehlgeschlagen", error);
+    protokolliereFehler({ vorgang: "konto.loeschen", userId: user.id }, error);
     return { fehler: "Das Konto konnte nicht gelöscht werden. Bitte melde dich bei uns." };
   }
 

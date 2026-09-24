@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 
 import { serverEnv } from "@/lib/env";
+import { protokolliereFehler } from "@/lib/protokoll";
 import { aboStatusAus, stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -84,7 +85,10 @@ export async function POST(request: Request) {
       }
     }
   } catch (fehler) {
-    console.error("[stripe/webhook] Verarbeitung fehlgeschlagen", fehler);
+    protokolliereFehler(
+      { vorgang: "stripe.webhook", details: { typ: ereignis.type } },
+      fehler,
+    );
     // 500 → Stripe versucht es erneut. Genau das wollen wir bei einem
     // vorübergehenden Datenbankfehler.
     return new Response("Fehler", { status: 500 });
