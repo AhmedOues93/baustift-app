@@ -9,8 +9,15 @@ import { defineConfig } from "vitest/config";
  * Datenbankschicht mit scripts/db-test.sh abgedeckt.
  */
 export default defineConfig({
-  // "@/..." auflösen wie in Next.
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    // "@/..." auflösen wie in Next.
+    tsconfigPaths: true,
+    alias: {
+      // Siehe src/test/server-only-stub.ts.
+      "server-only": new URL("./src/test/server-only-stub.ts", import.meta.url)
+        .pathname,
+    },
+  },
   // tsconfig.json steht auf "preserve", weil Next das so braucht. Für die
   // Tests muss JSX dagegen wirklich übersetzt werden — esbuild liest die
   // Einstellung hier statt aus der tsconfig.
