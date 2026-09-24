@@ -27,7 +27,11 @@ language sql immutable as $$ select string_to_array(name, '/') $$;
 
 -- Supabase gibt jedem eingeloggten Client die Rolle `authenticated`. Wir
 -- bauen sie nach, damit die GRANTs aus den Migrationen hier genauso greifen.
-create role authenticated;
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated;
+  end if;
+end $$;
 
 -- Rolle, die die App benutzt (kein Superuser -> RLS greift wirklich).
 create role app_user login;

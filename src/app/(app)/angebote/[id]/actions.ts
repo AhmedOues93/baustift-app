@@ -243,3 +243,126 @@ export async function angebotLoeschen(formData: FormData): Promise<void> {
 
   revalidatePath("/angebote");
 }
+
+/**
+ * Angebot als neuen Entwurf kopieren.
+ *
+ * Der häufigste Fall im Handwerk: derselbe Badumbau, andere Wohnung. Ohne
+ * Kopie spricht der Handwerker dieselben zwölf Positionen ein zweites Mal ein
+ * — und zahlt uns zweimal für die KI, für ein Ergebnis, das er schon hatte.
+ *
+ * Kopiert wird der fachliche Inhalt: Titel, Kunde, Notiz, Positionen. NICHT
+ * kopiert wird alles, was zur Geschichte des Originals gehört — Nummer,
+ * Status, Zeitstempel, PDF, und auch Transkript und KI-Hinweis nicht: sie
+ * beschreiben ein Diktat, das zu dieser Kopie nie stattgefunden hat.
+ *
+ * Der Steuersatz kommt frisch aus den Firmendaten statt aus dem Original: eine
+ * Kopie ist ein neues Angebot von heute und rechnet mit den heutigen Regeln.
+ */
+export async function angebotKopieren(
+  angebotId: string,
+): Promise<{ fehler?: string; angebotId?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+
+  const [{ data: original }, { data: positionen }, { data: firma }] =
+    await Promise.all([
+      supabase
+        .from("angebote")
+        .select("titel, kunde_id, notiz")
+        .eq("id", angebotId)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("positionen")
+        .select("*")
+        .eq("angebot_id", angebotId)
+        .order("pos_nr"),
+      supabase
+        .from("profiles")
+        .select("mwst_satz, kleinunternehmer, angebot_gueltig_tage")
+        .eq("id", user.id)
+        .maybeSingle(),
+    ]);
+
+  if (!original) return { fehler: "Angebot nicht gefunden." };
+
+  const { data: nummer, error: nummerFehler } = await supabase.rpc(
+    "next_angebot_nummer",
+    { p_user_id: user.id },
+  );
+  if (nummerFehler || !nummer) {
+    return { fehler: "Die Kopie konnte nicht angelegt werden." };
+  }
+
+  const gueltigBis = new Date();
+  gueltigBis.setDate(gueltigBis.getDate() + (firma?.angebot_gueltig_tage ?? 30));
+
+  const { data: kopie, error: kopieFehler } = await supabase
+    .from("angebote")
+    .insert({
+      user_id: user.id,
+      kunde_id: original.kunde_id,
+      nummer,
+      // Erkennbar machen, dass das eine Kopie ist: sonst liegen in der Liste
+      // zwei gleich benannte Angebote und man öffnet beim Nachfassen das
+      // falsche.
+      titel: `${original.titel} (Kopie)`,
+      status: "entwurf",
+      datum: new Date().toISOString().slice(0, 10),
+      gueltig_bis: gueltigBis.toISOString().slice(0, 10),
+      transkript: null,
+      ki_hinweis: null,
+      mwst_satz: firma?.kleinunternehmer ? 0 : (firma?.mwst_satz ?? 19),
+      netto: 0,
+      mwst_betrag: 0,
+      brutto: 0,
+      notiz: original.notiz,
+      audio_path: null,
+      pdf_path: null,
+      gesendet_am: null,
+      entschieden_am: null,
+      // Für die Pilot-Auswertung wichtig: eine Kopie ist keine Sprachaufnahme
+      // und darf die Quote "wie oft wird wirklich gesprochen" nicht verfälschen.
+      eingabe_art: "kopie",
+      aufnahme_sekunden: null,
+    })
+    .select("id")
+    .single();
+
+  if (kopieFehler || !kopie) {
+    return { fehler: "Die Kopie konnte nicht angelegt werden." };
+  }
+
+  if (positionen && positionen.length > 0) {
+    const { error: posFehler } = await supabase.from("positionen").insert(
+      positionen.map((p, i) => ({
+        angebot_id: kopie.id,
+        pos_nr: i + 1,
+        bezeichnung: p.bezeichnung,
+        beschreibung: p.beschreibung,
+        menge: p.menge,
+        einheit: p.einheit,
+        einzelpreis: p.einzelpreis,
+        preisliste_id: p.preisliste_id,
+        // Was im Original geprüft war, ist es auch in der Kopie. Ein "à
+        // vérifier" wieder aufzusetzen, würde den Handwerker zweimal
+        // dieselbe Zeile prüfen lassen.
+        zu_pruefen: p.zu_pruefen,
+        ki_konfidenz: p.ki_konfidenz,
+      })),
+    );
+    // Ein halb kopiertes Angebot ist schlimmer als keins: der Handwerker
+    // schickt es sonst mit fehlenden Zeilen raus.
+    if (posFehler) {
+      await supabase.from("angebote").delete().eq("id", kopie.id);
+      return { fehler: "Die Kopie konnte nicht angelegt werden." };
+    }
+  }
+
+  revalidatePath("/angebote");
+  return { angebotId: kopie.id };
+}

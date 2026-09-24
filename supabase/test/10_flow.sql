@@ -374,3 +374,25 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 8. Angebot kopieren
+-- =========================================================================
+-- Die Kopie trägt eine eigene Eingabe-Art. Fehlt der Enum-Wert, schlägt das
+-- Kopieren in der App mit einem Datenbankfehler fehl — hier fällt es sofort auf.
+do $$
+declare v_art eingabe_art;
+begin
+  insert into public.angebote
+    (user_id, nummer, titel, datum, gueltig_bis, mwst_satz, eingabe_art)
+  values
+    ('11111111-1111-1111-1111-111111111111', 'AN-2026-9999', 'Kopie', current_date,
+     current_date + 30, 19, 'kopie')
+  returning eingabe_art into v_art;
+
+  if v_art <> 'kopie' then
+    raise exception 'FEHLER: Eingabe-Art "kopie" nicht gespeichert (%)', v_art;
+  end if;
+
+  raise notice '19. Angebote dürfen als Kopie gekennzeichnet werden';
+end $$;

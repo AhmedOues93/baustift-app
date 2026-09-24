@@ -29,18 +29,24 @@ vi.mock("@/lib/email/senden", () => ({
   angebotNachricht: () => ({ betreff: "", text: "" }),
 }));
 
-const { angebotSpeichern, statusSetzen } = await import("./actions");
+const { angebotKopieren, angebotSpeichern, statusSetzen } = await import(
+  "./actions",
+);
 
 beforeEach(() => {
-  db = fakeSupabase({
-    angebote: [
-      { id: "a1", user_id: "u1", status: "entwurf", titel: "Alt", netto: 0, mwst_betrag: 0, brutto: 0 },
-    ],
-    positionen: [
-      { id: "p1", angebot_id: "a1", pos_nr: 1, bezeichnung: "Fliesen", beschreibung: null, menge: 8, einheit: "m2", einzelpreis: 52, zu_pruefen: false },
-      { id: "p2", angebot_id: "a1", pos_nr: 2, bezeichnung: "WC", beschreibung: null, menge: 1, einheit: "stk", einzelpreis: 380, zu_pruefen: true },
-    ],
-  });
+  db = fakeSupabase(
+    {
+      angebote: [
+        { id: "a1", user_id: "u1", status: "entwurf", titel: "Alt", netto: 0, mwst_betrag: 0, brutto: 0, kunde_id: "k1", notiz: "Gültig 14 Tage." },
+      ],
+      positionen: [
+        { id: "p1", angebot_id: "a1", pos_nr: 1, bezeichnung: "Fliesen", beschreibung: null, menge: 8, einheit: "m2", einzelpreis: 52, zu_pruefen: false },
+        { id: "p2", angebot_id: "a1", pos_nr: 2, bezeichnung: "WC", beschreibung: null, menge: 1, einheit: "stk", einzelpreis: 380, zu_pruefen: true },
+      ],
+      profiles: [{ id: "u1", mwst_satz: 19, kleinunternehmer: false, angebot_gueltig_tage: 14 }],
+    },
+    { rpc: { next_angebot_nummer: "AN-2026-0002" } },
+  );
 });
 
 function speichern(positionen: any[], extra: Partial<Record<string, unknown>> = {}) {
@@ -143,5 +149,65 @@ describe("statusSetzen", () => {
     const a = db.tabellen.angebote[0];
     expect(a.gesendet_am).toBeUndefined();
     expect(a.entschieden_am).toBeUndefined();
+  });
+});
+
+describe("angebotKopieren", () => {
+  it("legt einen Entwurf mit eigener Nummer und allen Positionen an", async () => {
+    const ergebnis = await angebotKopieren("a1");
+
+    const kopie = db.tabellen.angebote.find((a) => a.id === ergebnis.angebotId)!;
+    expect(kopie.nummer).toBe("AN-2026-0002");
+    expect(kopie.status).toBe("entwurf");
+    expect(kopie.titel).toBe("Alt (Kopie)");
+    // Fachlicher Inhalt kommt mit.
+    expect(kopie.kunde_id).toBe("k1");
+    expect(kopie.notiz).toBe("Gültig 14 Tage.");
+
+    const zeilen = db.tabellen.positionen
+      .filter((p) => p.angebot_id === kopie.id)
+      .sort((a, b) => a.pos_nr - b.pos_nr);
+    expect(zeilen.map((z) => [z.bezeichnung, z.einzelpreis, z.zu_pruefen])).toEqual([
+      ["Fliesen", 52, false],
+      ["WC", 380, true],
+    ]);
+  });
+
+  it("nimmt die Geschichte des Originals nicht mit", async () => {
+    db.tabellen.angebote[0].gesendet_am = "2026-01-05T10:00:00Z";
+    db.tabellen.angebote[0].status = "angenommen";
+
+    const { angebotId } = await angebotKopieren("a1");
+    const kopie = db.tabellen.angebote.find((a) => a.id === angebotId)!;
+
+    expect(kopie.gesendet_am).toBeNull();
+    expect(kopie.entschieden_am).toBeNull();
+    expect(kopie.pdf_path).toBeNull();
+    // Das Diktat gehört zum Original — zu dieser Kopie hat nie eins
+    // stattgefunden.
+    expect(kopie.transkript).toBeNull();
+    expect(kopie.ki_hinweis).toBeNull();
+    // Und sie darf die Sprachquote des Piloten nicht verfälschen.
+    expect(kopie.eingabe_art).toBe("kopie");
+    expect(kopie.aufnahme_sekunden).toBeNull();
+  });
+
+  it("rechnet mit den heutigen Firmendaten, nicht mit denen des Originals", async () => {
+    db.tabellen.angebote[0].mwst_satz = 7;
+    db.tabellen.profiles[0].kleinunternehmer = true;
+
+    const { angebotId } = await angebotKopieren("a1");
+    const kopie = db.tabellen.angebote.find((a) => a.id === angebotId)!;
+
+    // Kleinunternehmer weisen keine Umsatzsteuer aus (§ 19 UStG).
+    expect(kopie.mwst_satz).toBe(0);
+  });
+
+  it("kopiert keine fremden Angebote", async () => {
+    db.tabellen.angebote[0].user_id = "jemand-anderes";
+
+    const ergebnis = await angebotKopieren("a1");
+    expect(ergebnis.fehler).toContain("nicht gefunden");
+    expect(db.tabellen.angebote).toHaveLength(1);
   });
 });

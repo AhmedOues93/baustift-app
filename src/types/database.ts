@@ -20,7 +20,7 @@ export type AngebotStatus =
   | "abgelehnt"
   | "nachfassen";
 
-export type EingabeArt = "sprache" | "text";
+export type EingabeArt = "sprache" | "text" | "kopie";
 export type FeedbackArt = "problem" | "idee" | "lob";
 
 export const FEEDBACK_ART_LABEL: Record<FeedbackArt, string> = {

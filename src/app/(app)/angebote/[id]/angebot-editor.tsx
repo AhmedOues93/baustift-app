@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import {
+  angebotKopieren,
+  angebotLoeschen,
   angebotSpeichern,
   angebotVersenden,
   statusSetzen,
@@ -13,12 +15,15 @@ import { rechnungAusAngebot } from "@/app/(app)/rechnungen/actions";
 import { Button } from "@/components/ui/button";
 import { Meldung, Plakette } from "@/components/ui/field";
 import {
+  IconKopie,
   IconKreuz,
+  IconMuelleimer,
   IconPdf,
   IconPlus,
   IconRechnung,
   IconSenden,
 } from "@/components/ui/icons";
+import { Sheet } from "@/components/ui/sheet";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
 import {
   ANGEBOT_STATUS_LABEL,
@@ -90,6 +95,7 @@ export function AngebotEditor({
   const [versandMeldung, setVersandMeldung] = useState<
     { art: "fehler" | "erfolg"; text: string } | null
   >(null);
+  const [loeschenOffen, setLoeschenOffen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Beim ersten Rendern nicht speichern — sonst schreibt jedes Öffnen.
   const ersterLauf = useRef(true);
@@ -407,6 +413,79 @@ export function AngebotEditor({
           </div>
         )}
       </section>
+
+      {/* Weitere Aktionen ----------------------------------------------------
+          Bewusst unauffällig und unter dem Hauptknopf: kopieren braucht man
+          ab und zu, löschen selten — beides darf dem Versenden nicht die
+          Aufmerksamkeit wegnehmen. */}
+      <section className="flex flex-wrap gap-2 border-t border-linie pt-4">
+        <button
+          type="button"
+          disabled={statusPending}
+          onClick={() =>
+            statusStarten(async () => {
+              // Vorher speichern: kopiert wird, was auf dem Bildschirm steht,
+              // nicht der Stand von vor dem letzten Tippen.
+              await speichern();
+              const ergebnis = await angebotKopieren(angebot.id);
+              if (ergebnis.angebotId) {
+                router.push(`/angebote/${ergebnis.angebotId}`);
+              } else {
+                setVersandMeldung({
+                  art: "fehler",
+                  text: ergebnis.fehler ?? "Kopieren nicht möglich.",
+                });
+              }
+            })
+          }
+          className="inline-flex min-h-11 items-center gap-2 rounded-gross px-3 text-sm font-medium text-text-leise transition-colors active:bg-flaeche disabled:opacity-50"
+        >
+          <IconKopie className="h-5 w-5" />
+          Als Vorlage kopieren
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLoeschenOffen(true)}
+          className="inline-flex min-h-11 items-center gap-2 rounded-gross px-3 text-sm font-medium text-text-leise transition-colors active:bg-flaeche"
+        >
+          <IconMuelleimer className="h-5 w-5" />
+          Löschen
+        </button>
+      </section>
+
+      {loeschenOffen ? (
+        <Sheet titel="Angebot löschen" onSchliessen={() => setLoeschenOffen(false)}>
+          <p className="mt-2 text-text-leise">
+            {angebot.nummer} wird mit allen Positionen gelöscht. Das lässt sich
+            nicht rückgängig machen.
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <Button
+              variante="akzent"
+              disabled={statusPending}
+              onClick={() =>
+                statusStarten(async () => {
+                  const fd = new FormData();
+                  fd.set("id", angebot.id);
+                  await angebotLoeschen(fd);
+                  // Die Seite des gelöschten Angebots gibt es nicht mehr —
+                  // replace statt push, damit "zurück" nicht auf eine 404 führt.
+                  router.replace("/angebote");
+                })
+              }
+            >
+              Endgültig löschen
+            </Button>
+            <Button
+              variante="sekundaer"
+              onClick={() => setLoeschenOffen(false)}
+            >
+              Behalten
+            </Button>
+          </div>
+        </Sheet>
+      ) : null}
     </div>
   );
 }

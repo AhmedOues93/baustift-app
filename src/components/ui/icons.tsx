@@ -224,3 +224,39 @@ export function IconSuche({ className = basis }: Props) {
     </svg>
   );
 }
+
+export function IconKopie({ className = basis }: Props) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M15 5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2" />
+    </svg>
+  );
+}
+
+export function IconMuelleimer({ className = basis }: Props) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M10 4h4M6 7l1 13h10l1-13" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}

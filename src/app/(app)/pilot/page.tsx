@@ -55,7 +55,12 @@ export default async function PilotPage() {
     | undefined;
 
   const gesamt = z?.angebote_gesamt ?? 0;
-  const sprachAnteil = gesamt > 0 ? Math.round(((z?.per_sprache ?? 0) / gesamt) * 100) : 0;
+  // Nur neu erfasste Angebote zählen für die Sprachquote. Eine Kopie ist keine
+  // Gelegenheit zu diktieren — sie im Nenner mitzuzählen würde die eine Zahl
+  // verwässern, um die es im Piloten geht: wird wirklich gesprochen?
+  const erfasst = (z?.per_sprache ?? 0) + (z?.per_text ?? 0);
+  const sprachAnteil =
+    erfasst > 0 ? Math.round(((z?.per_sprache ?? 0) / erfasst) * 100) : 0;
   const positionen = z?.positionen_gesamt ?? 0;
   const pruefAnteil =
     positionen > 0 ? Math.round(((z?.positionen_zu_pruefen ?? 0) / positionen) * 100) : 0;
@@ -89,7 +94,7 @@ export default async function PilotPage() {
             <Kachel
               titel="Per Sprache"
               wert={`${sprachAnteil} %`}
-              fuss={`${z?.per_sprache ?? 0} von ${gesamt} Angeboten`}
+              fuss={`${z?.per_sprache ?? 0} von ${erfasst} neu erfassten`}
               ton={sprachAnteil >= 60 ? "erfolg" : "neutral"}
             />
             <Kachel
