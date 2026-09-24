@@ -227,6 +227,43 @@ export function RechnungEditor({
         )}
       </header>
 
+      {/* Überfällig ---------------------------------------------------------
+          Die unangenehme Aufgabe sichtbar machen, statt sie in einer Liste zu
+          verstecken: hinterher zu sein entscheidet, ob das Geld kommt. */}
+      {rechnungUeberfaellig(rechnung) ? (
+        <section className="rounded-karte bg-warnung-flaeche p-4">
+          <p className="font-medium text-warnung">
+            Seit <span className="zahl">{tageUeberfaellig(rechnung.faellig_am)}</span>{" "}
+            {tageUeberfaellig(rechnung.faellig_am) === 1 ? "Tag" : "Tagen"} überfällig
+          </p>
+          <p className="mt-1 text-sm text-warnung">
+            {rechnung.mahnungen > 0 && rechnung.gemahnt_am
+              ? `Zuletzt erinnert am ${formatDatum(rechnung.gemahnt_am.slice(0, 10))}` +
+                (rechnung.mahnungen > 1 ? ` (${rechnung.mahnungen} Erinnerungen)` : "")
+              : "Noch nicht erinnert."}
+          </p>
+          {versandMoeglich ? (
+            <Button
+              variante="akzent"
+              className="mt-3 w-full sm:w-auto"
+              disabled={pending}
+              onClick={mahnen}
+            >
+              <IconSenden className="h-5 w-5" />
+              {rechnung.mahnungen > 0
+                ? "Noch einmal erinnern"
+                : "Zahlungserinnerung senden"}
+            </Button>
+          ) : (
+            <p className="mt-2 text-sm text-warnung">
+              Für Erinnerungen per E-Mail fehlt der Versand. Das PDF kannst du
+              oben öffnen und selbst schicken.
+            </p>
+          )}
+        </section>
+      ) : null}
+
+
       {gestellt ? (
         <p className="rounded-feld bg-info-flaeche px-3 py-2.5 text-sm text-info">
           Diese Rechnung ist gestellt und damit unveränderlich. Korrekturen gehen
@@ -406,42 +443,6 @@ export function RechnungEditor({
           </span>
         </div>
       </section>
-
-      {/* Überfällig ---------------------------------------------------------
-          Die unangenehme Aufgabe sichtbar machen, statt sie in einer Liste zu
-          verstecken: hinterher zu sein entscheidet, ob das Geld kommt. */}
-      {rechnungUeberfaellig(rechnung) ? (
-        <section className="rounded-karte bg-warnung-flaeche p-4">
-          <p className="font-medium text-warnung">
-            Seit <span className="zahl">{tageUeberfaellig(rechnung.faellig_am)}</span>{" "}
-            {tageUeberfaellig(rechnung.faellig_am) === 1 ? "Tag" : "Tagen"} überfällig
-          </p>
-          <p className="mt-1 text-sm text-warnung">
-            {rechnung.mahnungen > 0 && rechnung.gemahnt_am
-              ? `Zuletzt erinnert am ${formatDatum(rechnung.gemahnt_am.slice(0, 10))}` +
-                (rechnung.mahnungen > 1 ? ` (${rechnung.mahnungen} Erinnerungen)` : "")
-              : "Noch nicht erinnert."}
-          </p>
-          {versandMoeglich ? (
-            <Button
-              variante="akzent"
-              className="mt-3 w-full sm:w-auto"
-              disabled={pending}
-              onClick={mahnen}
-            >
-              <IconSenden className="h-5 w-5" />
-              {rechnung.mahnungen > 0
-                ? "Noch einmal erinnern"
-                : "Zahlungserinnerung senden"}
-            </Button>
-          ) : (
-            <p className="mt-2 text-sm text-warnung">
-              Für Erinnerungen per E-Mail fehlt der Versand. Das PDF kannst du
-              oben öffnen und selbst schicken.
-            </p>
-          )}
-        </section>
-      ) : null}
 
       {meldung ? <Meldung art={meldung.art}>{meldung.text}</Meldung> : null}
 
