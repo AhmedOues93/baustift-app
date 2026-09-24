@@ -42,6 +42,15 @@ export function LoginForm({ weiter }: { weiter: string }) {
 
         {state.fehler ? <Meldung art="fehler">{state.fehler}</Meldung> : null}
 
+        <div className="flex justify-end">
+          <Link
+            href="/passwort-vergessen"
+            className="min-h-11 py-3 text-sm font-medium text-akzent underline underline-offset-2"
+          >
+            Passwort vergessen?
+          </Link>
+        </div>
+
         <AbsendenButton />
       </form>
 
