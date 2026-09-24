@@ -45,6 +45,17 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
   const teileRef = useRef<Blob[]>([]);
+  /**
+   * Die zuletzt aufgenommene Datei, damit ein zweiter Versuch möglich ist.
+   *
+   * Ohne das ist ein Funkloch teuer: das Diktat ist weg, und der Handwerker
+   * muss die ganze Beschreibung noch einmal sprechen — im Zweifel neben einer
+   * laufenden Maschine. Die Aufnahme bleibt nur im Speicher dieses
+   * Bildschirms: sie enthält Namen und Gesprächsfetzen von Dritten und hat
+   * weder im Gerätespeicher noch in einem Cache etwas verloren.
+   */
+  const letzteAufnahmeRef = useRef<Blob | null>(null);
+  const [nochmalMoeglich, setNochmalMoeglich] = useState(false);
 
   /** Alles freigeben: Mikrofon-LED aus, kein Timer, kein AudioContext mehr. */
   const aufraeumen = useCallback(() => {
@@ -131,8 +142,25 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
   }
 
   async function absenden(audio?: Blob) {
+    if (audio) letzteAufnahmeRef.current = audio;
     setZustand("verarbeitung");
     setFehler(null);
+    setNochmalMoeglich(false);
+
+    // Wenn das Gerät weiss, dass es offline ist, gar nicht erst senden: das
+    // spart die halbe Minute, die der Browser sonst in den Zeitablauf läuft.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setFehler(
+        letzteAufnahmeRef.current
+          ? "Kein Netz. Die Aufnahme bleibt hier — sobald du wieder Empfang hast, nochmal senden."
+          : "Kein Netz. Sobald du wieder Empfang hast, nochmal probieren.",
+      );
+      // Nur beim Diktat: der Tipp-Weg hat unten seinen eigenen Knopf, und
+      // zwei schwarze Knöpfe für dieselbe Sache sind einer zu viel.
+      setNochmalMoeglich(Boolean(letzteAufnahmeRef.current));
+      setZustand("bereit");
+      return;
+    }
 
     const formData = new FormData();
     if (kundeId) formData.set("kunde_id", kundeId);
@@ -159,7 +187,12 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
       // sieht, dass es funktioniert hat.
       router.push(`/angebote/${ergebnis.angebotId}`);
     } catch {
-      setFehler("Keine Verbindung. Sobald du wieder Netz hast, nochmal probieren.");
+      setFehler(
+        letzteAufnahmeRef.current
+          ? "Keine Verbindung. Die Aufnahme bleibt hier — sobald du wieder Netz hast, nochmal senden."
+          : "Keine Verbindung. Sobald du wieder Netz hast, nochmal probieren.",
+      );
+      setNochmalMoeglich(Boolean(letzteAufnahmeRef.current));
       setZustand("bereit");
     }
   }
@@ -280,6 +313,20 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
       </div>
 
       {fehler ? <Meldung art="fehler">{fehler}</Meldung> : null}
+
+      {/* Zweiter Versuch ------------------------------------------------------
+          Der Knopf erscheint nur, wenn es wirklich etwas zu wiederholen gibt.
+          Sonst steht er da und tut nichts — schlimmer als kein Knopf. */}
+      {nochmalMoeglich ? (
+        <Button
+          variante="primaer"
+          vollbreit
+          disabled={arbeitet}
+          onClick={() => absenden(letzteAufnahmeRef.current ?? undefined)}
+        >
+          Nochmal senden
+        </Button>
+      ) : null}
 
       {/* Tastatur-Weg --------------------------------------------------------- */}
       {tippen ? (
