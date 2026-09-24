@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { DatenBereich } from "./daten-bereich";
 import { FirmendatenFormular } from "./firmendaten-formular";
 import { abmelden } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,8 @@ export default async function EinstellungenPage() {
       </section>
 
       <FirmendatenFormular profil={profil as Profile} logoUrl={logoUrl} />
+
+      <DatenBereich firmaName={profil.firma_name || user.email || "mein Konto"} />
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-text-leise">
