@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Plakette } from "@/components/ui/field";
+import { MehrAnzeigen, anzahlAusParameter } from "@/components/ui/mehr";
 import { IconMikrofon, IconSuche } from "@/components/ui/icons";
 import { formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -17,12 +18,19 @@ export const metadata = { title: "Angebote · Baustift" };
 /** Ab wann gilt ein verschicktes Angebot als "liegt zu lange"? */
 const NACHFASSEN_NACH_TAGEN = 7;
 
+/**
+ * Obergrenze für einen Seitenaufruf. Die Kennzahlen oben rechnen über diese
+ * Menge — bis dahin stimmen sie auf die Zeile genau. Wer mehr als 500
+ * Angebote hat, sucht ohnehin, statt zu scrollen.
+ */
+const OBERGRENZE = 500;
+
 export default async function AngebotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; n?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, n } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -30,7 +38,11 @@ export default async function AngebotePage({
   if (!user) redirect("/login");
 
   const [{ data: angebote }, { data: kunden }, { data: profil }] = await Promise.all([
-    supabase.from("angebote").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("angebote")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(OBERGRENZE),
     supabase.from("kunden").select("id, name"),
     supabase
       .from("profiles")
@@ -57,6 +69,10 @@ export default async function AngebotePage({
           .includes(suche),
       )
     : alle;
+
+  // Angezeigt wird erst ein Teil; der Rest kommt über "Weitere anzeigen".
+  const anzahl = anzahlAusParameter(n);
+  const sichtbar = liste.slice(0, anzahl);
 
   // --- Kennzahlen ------------------------------------------------------------
   // Bewusst nur drei: was ist draussen, was kam rein, wo muss ich hinterher.
@@ -176,7 +192,7 @@ export default async function AngebotePage({
         )
       ) : (
         <ul className="flex flex-col gap-2 pb-4">
-          {liste.map((a) => (
+          {sichtbar.map((a) => (
             <li key={a.id} className="overflow-hidden rounded-karte bg-flaeche shadow-karte">
               <Link
                 href={`/angebote/${a.id}`}
@@ -209,6 +225,12 @@ export default async function AngebotePage({
           ))}
         </ul>
       )}
+
+      <MehrAnzeigen
+        gezeigt={sichtbar.length}
+        gesamt={liste.length}
+        parameter={{ q }}
+      />
     </div>
   );
 }

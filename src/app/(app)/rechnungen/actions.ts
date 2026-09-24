@@ -3,8 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { emailVerfuegbar, rechnungNachricht, sendeEmail } from "@/lib/email/senden";
+import {
+  emailVerfuegbar,
+  mahnungNachricht,
+  rechnungNachricht,
+  sendeEmail,
+} from "@/lib/email/senden";
 import { rechnungPdfErzeugen } from "@/lib/pdf/erzeugen";
+import { formatEuro } from "@/lib/format";
+import { istUeberfaellig } from "@/lib/rechnung";
 import { createClient } from "@/lib/supabase/server";
 import type { Einheit, Position, RechnungPosition } from "@/types/database";
 
@@ -457,4 +464,104 @@ export async function rechnungVersenden(
 
   revalidatePath(`/rechnungen/${rechnungId}`);
   return { erfolg: `Rechnung an ${kunde.email} verschickt.` };
+}
+
+/**
+ * Zahlungserinnerung an den Kunden.
+ *
+ * Die Rechnung schreiben die meisten noch; hinterher zu sein ist der Teil,
+ * den kleine Betriebe aufschieben — und genau der entscheidet, ob das Geld
+ * kommt. Deshalb gehört das Erinnern ins Produkt und nicht in einen
+ * Kalendereintrag, den niemand pflegt.
+ *
+ * Erinnert wird nur, was tatsächlich offen und überfällig ist: eine
+ * Erinnerung an eine bereits bezahlte Rechnung kostet Vertrauen, das ein
+ * Handwerksbetrieb im Ort nicht nachbestellen kann. Die Prüfung läuft
+ * deshalb hier auf dem Server gegen den frischen Datenbankstand, nicht gegen
+ * das, was der Browser gerade anzeigt.
+ *
+ * An der Rechnung selbst ändert sich nichts — nur wann und wie oft erinnert
+ * wurde. Der Beleg bleibt unveränderlich (siehe 0005).
+ */
+export async function rechnungMahnen(
+  rechnungId: string,
+): Promise<{ fehler?: string; erfolg?: string }> {
+  if (!emailVerfuegbar()) {
+    return { fehler: "Der E-Mail-Versand ist nicht eingerichtet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+
+  const { data: stand } = await supabase
+    .from("rechnungen")
+    .select("status, faellig_am, mahnungen")
+    .eq("id", rechnungId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!stand) return { fehler: "Rechnung nicht gefunden." };
+  if (stand.status === "bezahlt") {
+    return { fehler: "Die Rechnung ist bezahlt. Da gibt es nichts zu erinnern." };
+  }
+  if (stand.status !== "gestellt") {
+    return { fehler: "Nur gestellte Rechnungen lassen sich anmahnen." };
+  }
+  if (!istUeberfaellig(stand.faellig_am)) {
+    return {
+      fehler: "Das Zahlungsziel läuft noch. Erinnern kannst du ab dem Tag danach.",
+    };
+  }
+
+  // Dasselbe PDF noch einmal mitschicken: der Kunde soll nicht in alten
+  // Mails suchen müssen, um zu bezahlen.
+  const ergebnis = await rechnungPdfErzeugen(supabase, rechnungId);
+  if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };
+
+  const { rechnung, kunde, firma, puffer, dateiname } = ergebnis;
+
+  if (!kunde?.email) {
+    return {
+      fehler:
+        "Für diesen Kunden ist keine E-Mail-Adresse hinterlegt. Trag sie beim Kunden ein.",
+    };
+  }
+
+  const stufe = (stand.mahnungen ?? 0) + 1;
+
+  const { betreff, text } = mahnungNachricht({
+    firmaName: firma.firma_name,
+    nummer: rechnung.nummer,
+    titel: rechnung.titel,
+    faelligAm: rechnung.faellig_am,
+    betrag: formatEuro(rechnung.brutto),
+    ansprechpartner: kunde.ansprechpartner,
+    telefon: firma.telefon,
+    stufe,
+  });
+
+  const versand = await sendeEmail({
+    an: kunde.email,
+    betreff,
+    text,
+    antwortAn: firma.email ?? undefined,
+    anhaenge: [{ dateiname, inhalt: puffer }],
+  });
+
+  if (versand.fehler) return { fehler: versand.fehler };
+
+  // Erst nach erfolgreichem Versand vermerken: ein Zähler, der hochläuft,
+  // obwohl nie eine Mail rausging, führt den Betrieb in die Irre.
+  await supabase
+    .from("rechnungen")
+    .update({ gemahnt_am: new Date().toISOString(), mahnungen: stufe })
+    .eq("id", rechnungId)
+    .eq("user_id", user.id);
+
+  revalidatePath(`/rechnungen/${rechnungId}`);
+  revalidatePath("/rechnungen");
+  return { erfolg: `Erinnerung an ${kunde.email} verschickt.` };
 }

@@ -120,6 +120,68 @@ export function rechnungNachricht(args: {
   };
 }
 
+/**
+ * Der Text einer Zahlungserinnerung.
+ *
+ * Bewusst freundlich und ohne Drohkulisse: beim ersten Mal ist die Rechnung
+ * meistens schlicht untergegangen, und der Kunde soll wiederkommen. Es ist
+ * eine Erinnerung, keine Mahnung im Sinne des Verzugs — Mahngebühren oder
+ * Verzugszinsen setzen wir hier nicht an, das ist eine Entscheidung des
+ * Betriebs und keine, die eine Software nebenbei trifft.
+ *
+ * Ab der zweiten Erinnerung wird der Ton deutlicher, aber nicht unhöflich.
+ */
+export function mahnungNachricht(args: {
+  firmaName: string;
+  nummer: string;
+  titel: string;
+  faelligAm: string | null;
+  betrag: string;
+  ansprechpartner: string | null;
+  telefon: string | null;
+  /** Die wievielte Erinnerung das ist (1 = die erste). */
+  stufe: number;
+}): { betreff: string; text: string } {
+  const anrede = args.ansprechpartner
+    ? `Guten Tag ${args.ansprechpartner},`
+    : "Guten Tag,";
+
+  const faellig = args.faelligAm
+    ? ` war am ${formatDatum(args.faelligAm)} fällig`
+    : " ist fällig";
+
+  const einleitung =
+    args.stufe <= 1
+      ? `unsere Rechnung ${args.nummer} über ${args.betrag}${faellig} und ist bei uns noch offen. ` +
+        `Vermutlich ist sie im Alltag untergegangen.`
+      : `wir kommen auf unsere Rechnung ${args.nummer} über ${args.betrag} zurück. ` +
+        `Sie${faellig} und ist weiterhin offen.`;
+
+  const schluss =
+    args.stufe <= 1
+      ? `Wir bitten Sie, den Betrag in den nächsten Tagen zu überweisen.`
+      : `Wir bitten Sie, den Betrag jetzt kurzfristig zu überweisen.`;
+
+  const rueckfragen = args.telefon
+    ? `\n\nSollte etwas nicht stimmen oder haben Sie Fragen zur Rechnung, rufen Sie uns gern an: ${args.telefon}.`
+    : `\n\nSollte etwas nicht stimmen oder haben Sie Fragen zur Rechnung, melden Sie sich gern.`;
+
+  return {
+    betreff:
+      args.stufe <= 1
+        ? `Zahlungserinnerung zu Rechnung ${args.nummer}`
+        : `2. Zahlungserinnerung zu Rechnung ${args.nummer}`,
+    text:
+      `${anrede}\n\n` +
+      einleitung +
+      `\n\n${schluss}` +
+      `\n\nDie Rechnung${args.titel ? ` für ${args.titel}` : ""} liegt zur Sicherheit noch einmal bei.` +
+      rueckfragen +
+      `\n\nHat sich die Zahlung mit dieser Nachricht überschnitten, betrachten Sie sie bitte als gegenstandslos.` +
+      `\n\nMit freundlichen Grüssen\n${args.firmaName}`,
+  };
+}
+
 function formatDatum(iso: string): string {
   const [jahr, monat, tag] = iso.slice(0, 10).split("-");
   return `${tag}.${monat}.${jahr}`;

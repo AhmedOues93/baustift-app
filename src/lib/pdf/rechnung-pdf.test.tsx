@@ -46,7 +46,9 @@ const rechnung: Rechnung = {
   zahlungsziel_tage: 14, faellig_am: "2026-10-07",
   netto: 2754, mwst_satz: 19, mwst_betrag: 523.26, brutto: 3277.26,
   notiz: null, festgeschrieben_am: "2026-09-23T10:00:00Z", bezahlt_am: null,
-  storniert_am: null, storniert_durch: null, created_at: "", updated_at: "",
+  storniert_am: null, storniert_durch: null,
+  gemahnt_am: null, mahnungen: 0,
+  created_at: "", updated_at: "",
 };
 
 const positionen: RechnungPosition[] = [

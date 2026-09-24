@@ -396,3 +396,34 @@ begin
 
   raise notice '19. Angebote dürfen als Kopie gekennzeichnet werden';
 end $$;
+
+-- =========================================================================
+-- 9. Zahlungserinnerung
+-- =========================================================================
+-- Erinnern muss auch an einer festgeschriebenen Rechnung gehen: wann erinnert
+-- wurde, steht auf keinem Beleg. Die Beträge bleiben trotzdem gesperrt —
+-- sonst hätte die Erinnerung ein Loch in die Unveränderlichkeit gerissen.
+do $$
+declare
+  v_id uuid;
+  v_zahl smallint;
+begin
+  select id into v_id from public.rechnungen where nummer = 'RE-2026-0001';
+
+  update public.rechnungen
+  set gemahnt_am = now(), mahnungen = 1
+  where id = v_id;
+
+  select mahnungen into v_zahl from public.rechnungen where id = v_id;
+  if v_zahl <> 1 then
+    raise exception 'FEHLER: Erinnerung nicht vermerkt (%)', v_zahl;
+  end if;
+
+  begin
+    update public.rechnungen set brutto = 1 where id = v_id;
+    raise exception 'SCHWERER FEHLER: Betrag über den Mahnweg änderbar';
+  exception when check_violation then null;
+  end;
+
+  raise notice '20. Erinnerung vermerkbar, Beträge bleiben gesperrt';
+end $$;

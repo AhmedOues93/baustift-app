@@ -93,11 +93,15 @@ export async function GET(
   return csvAntwort(
     `rechnungen-${heute}.csv`,
     csvDatei(
-      ["Nummer", "Datum", "Kunde", "Titel", "Status", "Netto", "MwSt", "Brutto", "Fällig am", "Bezahlt am"],
+      // "Erinnert am" und "Erinnerungen" gehören mit: wer die Liste beim
+      // Steuerberater oder in Excel weiterverarbeitet, will sehen, wo er
+      // hinterher war.
+      ["Nummer", "Datum", "Kunde", "Titel", "Status", "Netto", "MwSt", "Brutto", "Fällig am", "Bezahlt am", "Erinnert am", "Erinnerungen"],
       (rechnungen ?? []).map((r): CsvWert[] => [
         r.nummer, r.datum, r.kunde_id ? name.get(r.kunde_id) : null, r.titel,
         r.status, r.netto, r.mwst_betrag, r.brutto,
         r.faellig_am, r.bezahlt_am?.slice(0, 10),
+        r.gemahnt_am?.slice(0, 10), r.mahnungen,
       ]),
     ),
   );

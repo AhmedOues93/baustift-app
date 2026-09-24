@@ -26,18 +26,59 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => db.client,
   createAdminClient: async () => db.client,
 }));
+/**
+ * E-Mail-Versand als Doppelgänger: die Tests zur Zahlungserinnerung müssen
+ * sehen, ob eine Mail rausging und an wen — und der Versand darf dabei
+ * umschaltbar sein, weil die App ohne Resend-Schlüssel weiterlaufen muss.
+ */
+const post = {
+  verfuegbar: false,
+  gesendet: [] as { an: string; betreff: string; stufe?: number }[],
+  fehler: undefined as string | undefined,
+};
+
 vi.mock("@/lib/email/senden", () => ({
-  emailVerfuegbar: () => false,
-  sendeEmail: async () => ({}),
+  emailVerfuegbar: () => post.verfuegbar,
+  sendeEmail: async (args: { an: string; betreff: string }) => {
+    if (post.fehler) return { fehler: post.fehler };
+    post.gesendet.push({ an: args.an, betreff: args.betreff });
+    return {};
+  },
   rechnungNachricht: () => ({ betreff: "", text: "" }),
+  mahnungNachricht: (args: { stufe: number }) => ({
+    betreff: `Erinnerung (Stufe ${args.stufe})`,
+    text: "",
+  }),
+}));
+
+vi.mock("@/lib/pdf/erzeugen", () => ({
+  rechnungPdfErzeugen: async (_client: unknown, id: string) => {
+    const rechnung = db.tabellen.rechnungen.find((r) => r.id === id);
+    if (!rechnung) return { fehler: "Rechnung nicht gefunden." };
+    return {
+      rechnung,
+      kunde: db.tabellen.kunden?.[0] ?? null,
+      firma: db.tabellen.profiles[0],
+      puffer: Buffer.from("PDF"),
+      dateiname: `${rechnung.nummer}.pdf`,
+    };
+  },
 }));
 
 const {
   rechnungAusAngebot,
+  rechnungMahnen,
   rechnungSpeichern,
   rechnungStellen,
   rechnungStornieren,
 } = await import("./actions");
+
+/** Ein Datum relativ zu heute, als ISO-Tag. */
+function tag(versatz: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + versatz);
+  return d.toISOString().slice(0, 10);
+}
 
 const ANGEBOT = {
   id: "a1",
@@ -54,9 +95,23 @@ const POSITIONEN = [
 
 beforeEach(() => {
   db = fakeSupabase(
-    { angebote: [ANGEBOT], positionen: POSITIONEN, rechnungen: [], rechnung_positionen: [] },
+    {
+      angebote: [ANGEBOT],
+      positionen: POSITIONEN,
+      rechnungen: [],
+      rechnung_positionen: [],
+      kunden: [
+        { id: "k1", user_id: "u1", name: "Familie Becker", email: "becker@example.de", ansprechpartner: null },
+      ],
+      profiles: [
+        { id: "u1", firma_name: "Müller Sanitär GmbH", email: "info@mueller.de", telefon: "0221 1234" },
+      ],
+    },
     { rpc: { next_rechnung_nummer: "RE-2026-0001" } },
   );
+  post.verfuegbar = false;
+  post.gesendet = [];
+  post.fehler = undefined;
 });
 
 describe("rechnungAusAngebot", () => {
@@ -237,5 +292,104 @@ describe("rechnungStornieren", () => {
     await rechnungStornieren("r1");
     const zweiter = await rechnungStornieren("r1");
     expect(zweiter.fehler).toContain("Bereits storniert");
+  });
+});
+
+describe("rechnungMahnen", () => {
+  /** Eine gestellte, seit `tage` Tagen überfällige Rechnung. */
+  function ueberfaellig(tage: number, extra: Record<string, unknown> = {}) {
+    db.tabellen.rechnungen.push({
+      id: "r9", user_id: "u1", kunde_id: "k1", nummer: "RE-2026-0009",
+      titel: "Badsanierung", status: "gestellt", datum: tag(-30),
+      faellig_am: tag(-tage), netto: 1000, mwst_satz: 19, mwst_betrag: 190,
+      brutto: 1190, festgeschrieben_am: "2026-01-01T00:00:00Z",
+      gemahnt_am: null, mahnungen: 0, ...extra,
+    });
+    post.verfuegbar = true;
+  }
+
+  it("schickt die Erinnerung und vermerkt sie an der Rechnung", async () => {
+    ueberfaellig(3);
+
+    const ergebnis = await rechnungMahnen("r9");
+
+    expect(ergebnis.erfolg).toContain("becker@example.de");
+    expect(post.gesendet).toHaveLength(1);
+    const r = db.tabellen.rechnungen.find((x) => x.id === "r9")!;
+    expect(r.mahnungen).toBe(1);
+    expect(r.gemahnt_am).toBeTruthy();
+    // Der Beleg selbst bleibt unangetastet.
+    expect(r.brutto).toBe(1190);
+    expect(r.nummer).toBe("RE-2026-0009");
+  });
+
+  it("zählt die Stufe hoch und wird beim zweiten Mal deutlicher", async () => {
+    ueberfaellig(20, { mahnungen: 1, gemahnt_am: "2026-01-10T00:00:00Z" });
+
+    await rechnungMahnen("r9");
+
+    expect(post.gesendet[0].betreff).toBe("Erinnerung (Stufe 2)");
+    expect(db.tabellen.rechnungen[0].mahnungen).toBe(2);
+  });
+
+  it("erinnert nicht an eine bezahlte Rechnung", async () => {
+    ueberfaellig(5, { status: "bezahlt", bezahlt_am: "2026-01-09T00:00:00Z" });
+
+    const ergebnis = await rechnungMahnen("r9");
+
+    // Das ist der Fehler, der einen Kunden im Ort kostet.
+    expect(ergebnis.fehler).toContain("bezahlt");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("erinnert nicht, solange das Zahlungsziel läuft", async () => {
+    ueberfaellig(-5);
+
+    const ergebnis = await rechnungMahnen("r9");
+
+    expect(ergebnis.fehler).toContain("Zahlungsziel");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("erinnert nicht am Fälligkeitstag selbst", async () => {
+    ueberfaellig(0);
+
+    const ergebnis = await rechnungMahnen("r9");
+    expect(ergebnis.fehler).toContain("Zahlungsziel");
+  });
+
+  it("erinnert nicht an einen Entwurf", async () => {
+    ueberfaellig(5, { status: "entwurf", festgeschrieben_am: null });
+
+    const ergebnis = await rechnungMahnen("r9");
+    expect(ergebnis.fehler).toContain("gestellte");
+  });
+
+  it("zählt nicht hoch, wenn der Versand scheitert", async () => {
+    ueberfaellig(3);
+    post.fehler = "Resend antwortet nicht.";
+
+    const ergebnis = await rechnungMahnen("r9");
+
+    expect(ergebnis.fehler).toBe("Resend antwortet nicht.");
+    // Ein Zähler, der ohne Mail hochläuft, führt den Betrieb in die Irre.
+    expect(db.tabellen.rechnungen[0].mahnungen).toBe(0);
+    expect(db.tabellen.rechnungen[0].gemahnt_am).toBeNull();
+  });
+
+  it("erinnert nicht an fremde Rechnungen", async () => {
+    ueberfaellig(3, { user_id: "jemand-anderes" });
+
+    const ergebnis = await rechnungMahnen("r9");
+    expect(ergebnis.fehler).toContain("nicht gefunden");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("sagt Bescheid, wenn der Versand gar nicht eingerichtet ist", async () => {
+    ueberfaellig(3);
+    post.verfuegbar = false;
+
+    const ergebnis = await rechnungMahnen("r9");
+    expect(ergebnis.fehler).toContain("nicht eingerichtet");
   });
 });

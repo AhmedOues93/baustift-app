@@ -196,6 +196,10 @@ export type Rechnung = {
   bezahlt_am: string | null;
   storniert_am: string | null;
   storniert_durch: string | null;
+  /** Letzte Zahlungserinnerung an den Kunden (0009_mahnung.sql). */
+  gemahnt_am: string | null;
+  /** Wie oft schon erinnert wurde. 0 = noch gar nicht. */
+  mahnungen: number;
   created_at: string;
   updated_at: string;
 };
@@ -309,7 +313,12 @@ export type Database = {
       };
       rechnungen: {
         Row: Rechnung;
-        Insert: Omit<Rechnung, "id" | "created_at" | "updated_at"> & { id?: string };
+        // gemahnt_am und mahnungen haben Vorgaben in der Datenbank: beim
+        // Anlegen wurde noch nie erinnert.
+        Insert: Omit<
+          Rechnung,
+          "id" | "created_at" | "updated_at" | "gemahnt_am" | "mahnungen"
+        > & { id?: string; gemahnt_am?: string | null; mahnungen?: number };
         Update: Partial<Rechnung>;
         Relationships: [];
       };
