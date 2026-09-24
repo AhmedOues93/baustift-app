@@ -168,7 +168,7 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
   const arbeitet = zustand === "verarbeitung";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-5">
       {/* Kunde --------------------------------------------------------------- */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="kunde" className="text-sm font-medium text-text-leise">
@@ -202,15 +202,22 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
       </div>
 
       {/* Aufnahme ------------------------------------------------------------ */}
-      <div className="rounded-tafel bg-tief p-6 text-text-invers">
-        <p className="font-titel text-lg font-bold tracking-tight">
+      <div
+        className={[
+          "mx-auto w-full bg-tief p-6 text-text-invers transition-all duration-500",
+          laeuft || arbeitet
+            ? "max-w-none rounded-tafel"
+            : "my-auto aspect-square max-w-[23rem] rounded-[2rem] shadow-schwebend",
+        ].join(" ")}
+      >
+        <p className="text-center font-titel text-lg font-bold tracking-tight">
           {arbeitet
             ? "Angebot wird erstellt…"
             : laeuft
               ? "Ich höre zu"
               : "Leistung einsprechen"}
         </p>
-        <p className="mt-1 text-sm text-text-invers/70">
+        <p className="mt-1 text-center text-sm text-text-invers/70">
           {arbeitet
             ? "Transkribieren, Positionen erkennen, Preise zuordnen."
             : laeuft
