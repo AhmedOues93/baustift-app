@@ -109,6 +109,47 @@ export async function registrieren(
   redirect("/willkommen");
 }
 
+export async function passwortZuruecksetzen(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) return { fehler: "Bitte deine E-Mail-Adresse eingeben." };
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${publicEnv.siteUrl}/auth/callback?weiter=/passwort-neu`,
+  });
+
+  if (error) return { fehler: uebersetzeFehler(error.message) };
+
+  return {
+    hinweis:
+      "Wir haben dir einen Link zum Zuruecksetzen geschickt. Bitte pruefe dein E-Mail-Postfach.",
+  };
+}
+
+export async function passwortAktualisieren(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const passwort = String(formData.get("passwort") ?? "");
+  const bestaetigung = String(formData.get("passwort_bestaetigen") ?? "");
+
+  if (passwort.length < 8)
+    return { fehler: "Das Passwort muss mindestens 8 Zeichen haben." };
+  if (passwort !== bestaetigung)
+    return { fehler: "Die beiden Passwoerter stimmen nicht ueberein." };
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({ password: passwort });
+  if (error) return { fehler: uebersetzeFehler(error.message) };
+
+  revalidatePath("/", "layout");
+  redirect("/angebote");
+}
+
 export async function abmelden() {
   const supabase = createClient();
   await supabase.auth.signOut();
