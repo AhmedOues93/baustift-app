@@ -10,6 +10,11 @@ const OEFFENTLICH = [
   "/login",
   "/signup",
   "/auth",
+  // Wer sein Passwort vergessen hat, ist per Definition nicht angemeldet.
+  // Ohne diese beiden Einträge landet er auf /login — also genau dort, wo er
+  // nicht weiterkommt, und die ganze Wiederherstellung ist unerreichbar.
+  "/passwort-vergessen",
+  "/passwort-neu",
   // Impressum und Datenschutz müssen ohne Anmeldung erreichbar sein —
   // hinter einem Login erfüllen sie ihren Zweck nicht.
   "/rechtliches",
@@ -19,6 +24,18 @@ const OEFFENTLICH = [
   // Abo-Buchung läuft ins Leere, ohne dass irgendwo ein Fehler auftaucht.
   "/api/stripe/webhook",
 ];
+
+/**
+ * Darf dieser Pfad ohne Anmeldung aufgerufen werden?
+ *
+ * Als eigene Funktion und exportiert, damit die Liste testbar ist. Ein
+ * vergessener Eintrag fällt sonst erst auf, wenn ein Nutzer in einer
+ * Weiterleitungsschleife steht — bei der Passwort-Wiederherstellung ist das
+ * genau einmal passiert.
+ */
+export function istOeffentlicherPfad(pfad: string): boolean {
+  return OEFFENTLICH.some((p) => pfad === p || pfad.startsWith(`${p}/`));
+}
 
 /**
  * Hält die Supabase-Session frisch und schützt die App-Routen.
@@ -60,11 +77,8 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pfad = request.nextUrl.pathname;
-  const istOeffentlich = OEFFENTLICH.some(
-    (p) => pfad === p || pfad.startsWith(`${p}/`),
-  );
 
-  if (!user && !istOeffentlich) {
+  if (!user && !istOeffentlicherPfad(pfad)) {
     // Schnittstellen bekommen eine Antwort, die ein Programm verstehen kann.
     // Eine Weiterleitung auf /login würde dort als HTML-Seite mit Status 200
     // ankommen und die aufrufende Stelle in die Irre führen.
