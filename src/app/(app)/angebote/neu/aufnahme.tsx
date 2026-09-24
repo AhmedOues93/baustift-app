@@ -204,12 +204,19 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
       {/* Aufnahme ------------------------------------------------------------ */}
       <div
         className={[
-          "mx-auto w-full bg-tief p-6 text-text-invers transition-all duration-500",
+          "relative mx-auto w-full overflow-hidden bg-tief p-6 text-text-invers transition-all duration-500",
           laeuft || arbeitet
             ? "max-w-none rounded-tafel"
             : "my-auto aspect-square max-w-[23rem] rounded-[2rem] shadow-schwebend",
         ].join(" ")}
       >
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.09]">
+          <span className="absolute -left-3 top-8 rotate-[-18deg] text-6xl">🔨</span>
+          <span className="absolute right-5 top-5 rotate-12 text-5xl">🔧</span>
+          <span className="absolute bottom-7 left-7 rotate-12 text-5xl">📐</span>
+          <span className="absolute -bottom-2 right-7 rotate-[-12deg] text-6xl">🪛</span>
+        </div>
+        <div className="relative z-10">
         <p className="text-center font-titel text-lg font-bold tracking-tight">
           {arbeitet
             ? "Angebot wird erstellt…"
@@ -268,6 +275,7 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
               )}
             </button>
           )}
+        </div>
         </div>
       </div>
 
