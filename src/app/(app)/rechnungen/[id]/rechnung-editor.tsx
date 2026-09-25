@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   rechnungBezahlt,
   rechnungMahnen,
+  rechnungTeilzahlungErfassen,
   rechnungSpeichern,
   rechnungStellen,
   rechnungStornieren,
@@ -25,6 +26,7 @@ import {
   type Kunde,
   type Rechnung,
   type RechnungPosition,
+  type RechnungZahlung,
 } from "@/types/database";
 
 type Zeile = RechnungPositionEingabe & { key: string };
@@ -47,11 +49,13 @@ export function RechnungEditor({
   positionen,
   kunden,
   versandMoeglich,
+  zahlungen,
 }: {
   rechnung: Rechnung;
   positionen: RechnungPosition[];
   kunden: Kunde[];
   versandMoeglich: boolean;
+  zahlungen: RechnungZahlung[];
 }) {
   const router = useRouter();
   const gestellt = Boolean(rechnung.festgeschrieben_am);
@@ -77,12 +81,16 @@ export function RechnungEditor({
   const [zustand, setZustand] = useState<"rein" | "offen" | "speichert" | "fehler">("rein");
   const [meldung, setMeldung] = useState<{ art: "fehler" | "erfolg"; text: string } | null>(null);
   const [pending, starten] = useTransition();
+  const [zahlungOffen, setZahlungOffen] = useState(false);
+  const [zahlbetrag, setZahlbetrag] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ersterLauf = useRef(true);
 
   const netto = zeilen.reduce((s, z) => s + runde(z.menge * z.einzelpreis), 0);
   const mwst = runde((netto * rechnung.mwst_satz) / 100);
   const brutto = runde(netto + mwst);
+  const bezahltSumme = runde(zahlungen.reduce((summe, z) => summe + Number(z.betrag), 0));
+  const offenSumme = Math.max(0, runde(Number(rechnung.brutto) - bezahltSumme));
 
   const speichern = useCallback(async () => {
     if (gestellt) return;
@@ -150,6 +158,31 @@ export function RechnungEditor({
   function bezahlt() {
     starten(async () => {
       await rechnungBezahlt(rechnung.id);
+      router.refresh();
+    });
+  }
+
+  function teilzahlung() {
+    const betrag = parsePreis(zahlbetrag);
+    if (betrag === null || betrag <= 0) {
+      setMeldung({ art: "fehler", text: "Bitte einen gültigen Zahlungsbetrag eingeben." });
+      return;
+    }
+    starten(async () => {
+      const ergebnis = await rechnungTeilzahlungErfassen({
+        rechnungId: rechnung.id,
+        betrag,
+      });
+      if (ergebnis.fehler) {
+        setMeldung({ art: "fehler", text: ergebnis.fehler });
+        return;
+      }
+      setZahlbetrag("");
+      setZahlungOffen(false);
+      setMeldung({
+        art: "erfolg",
+        text: ergebnis.vollBezahlt ? "Rechnung vollständig bezahlt." : "Teilzahlung gespeichert.",
+      });
       router.refresh();
     });
   }
@@ -444,6 +477,42 @@ export function RechnungEditor({
           </span>
         </div>
       </section>
+
+      {gestellt && rechnung.status !== "storniert" ? (
+        <section className="rounded-karte bg-flaeche p-4 shadow-karte">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-titel text-lg font-bold">Zahlungen</h2>
+            {offenSumme > 0 ? (
+              <button type="button" onClick={() => setZahlungOffen((v) => !v)} className="text-sm font-medium text-akzent">
+                + Zahlung erfassen
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div><p className="text-xs text-text-leise">Bezahlt</p><p className="zahl font-semibold">{formatEuro(bezahltSumme)}</p></div>
+            <div><p className="text-xs text-text-leise">Offen</p><p className="zahl font-semibold">{formatEuro(offenSumme)}</p></div>
+          </div>
+          {zahlungOffen ? (
+            <div className="mt-4 flex gap-2">
+              <div className="relative flex-1">
+                <input value={zahlbetrag} onChange={(e) => setZahlbetrag(e.target.value)} inputMode="decimal" placeholder={formatPreisEingabe(offenSumme)} aria-label="Zahlungsbetrag" className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche px-3 pr-8 text-base focus:border-text focus:outline-none" />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-leise">€</span>
+              </div>
+              <Button variante="primaer" disabled={pending} onClick={teilzahlung}>Speichern</Button>
+            </div>
+          ) : null}
+          {zahlungen.length > 0 ? (
+            <div className="mt-4 border-t border-linie pt-2">
+              {zahlungen.map((z) => (
+                <div key={z.id} className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-text-leise">{formatDatum(z.bezahlt_am)}</span>
+                  <span className="zahl font-medium">+ {formatEuro(Number(z.betrag))}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="mt-3 text-sm text-text-leise">Noch keine Zahlung erfasst.</p>}
+        </section>
+      ) : null}
 
       {meldung ? <Meldung art={meldung.art}>{meldung.text}</Meldung> : null}
 
