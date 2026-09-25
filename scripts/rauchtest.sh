@@ -67,7 +67,21 @@ export ANTHROPIC_API_KEY="sk-ant-rauchtest"
 export OPENAI_API_KEY="sk-rauchtest"
 export RESEND_API_KEY="re_rauchtest"
 export RESEND_ABSENDER="Rauchtest <test@example.de>"
-npm run build > "$SICHERUNG/build.log" 2>&1 || { tail -30 "$SICHERUNG/build.log"; exit 1; }
+if ! npm run build > "$SICHERUNG/build.log" 2>&1; then
+  # next/font lädt die Schriften zur Bauzeit von Google. Ist der Host im Netz
+  # dieser Umgebung gesperrt, scheitert der Build daran — und das ist kein
+  # Befund über die Anwendung. Wer dem nachgeht, sucht sonst stundenlang einen
+  # Fehler, den es nicht gibt.
+  if grep -q "next-font-loader\|font/google" "$SICHERUNG/build.log"; then
+    echo
+    echo "⚠ Der Build kam nicht an die Schriften (next/font lädt sie von Google)."
+    echo "  Das ist ein Netzproblem dieser Umgebung, kein Fehler der Anwendung."
+    echo "  Nach einem erfolgreichen Build liegen sie im Cache; dann läuft es."
+    exit 2
+  fi
+  tail -30 "$SICHERUNG/build.log"
+  exit 1
+fi
 
 echo "→ Starten auf Port $PORT"
 npx next start -p "$PORT" > "$SICHERUNG/server.log" 2>&1 &

@@ -24,7 +24,8 @@ export async function GET() {
   // verlangt vollständig, nicht ungefähr.
   const [
     profil, kunden, preisliste, angebote, positionen, rechnungen,
-    rechnungPositionen, aufmasse, messungen, nutzung, rueckmeldungen,
+    rechnungPositionen, zahlungen, aufmasse, messungen, auftraege, dokumentation,
+    nutzung, rueckmeldungen,
   ] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
@@ -34,8 +35,11 @@ export async function GET() {
       supabase.from("positionen").select("*"),
       supabase.from("rechnungen").select("*"),
       supabase.from("rechnung_positionen").select("*"),
+      supabase.from("rechnung_zahlungen").select("*"),
       supabase.from("aufmass").select("*"),
       supabase.from("aufmass_positionen").select("*"),
+      supabase.from("auftraege").select("*"),
+      supabase.from("auftrag_dokumentation").select("*"),
       supabase.from("ki_nutzung").select("*"),
       supabase.from("feedback").select("*"),
     ]);
@@ -52,8 +56,11 @@ export async function GET() {
     angebotspositionen: positionen.data ?? [],
     rechnungen: rechnungen.data ?? [],
     rechnungspositionen: rechnungPositionen.data ?? [],
+    zahlungen: zahlungen.data ?? [],
     aufmasse: aufmasse.data ?? [],
     messungen: messungen.data ?? [],
+    auftraege: auftraege.data ?? [],
+    baustellendokumentation: dokumentation.data ?? [],
     ki_nutzung: nutzung.data ?? [],
     rueckmeldungen: rueckmeldungen.data ?? [],
   };

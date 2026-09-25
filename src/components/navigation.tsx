@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   IconAngebote,
   IconKonto,
-  IconLineal,
+  IconAuftrag,
   IconKunden,
   IconPreisliste,
   IconRechnung,
@@ -33,7 +33,7 @@ import {
 const EINTRAEGE = [
   { href: "/angebote", label: "Angebote", Icon: IconAngebote },
   { href: "/rechnungen", label: "Rechnungen", Icon: IconRechnung },
-  { href: "/auftraege", label: "Aufträge", Icon: IconLineal },
+  { href: "/auftraege", label: "Aufträge", Icon: IconAuftrag },
   { href: "/kunden", label: "Kunden", Icon: IconKunden },
   { href: "/preisliste", label: "Preise", langLabel: "Preisliste", Icon: IconPreisliste },
   { href: "/einstellungen", label: "Konto", Icon: IconKonto },

@@ -618,3 +618,75 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 13. Aufträge und Baustellendokumentation
+-- =========================================================================
+set role app_user;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+do $$
+declare
+  v_id uuid;
+  v_anzahl int;
+begin
+  insert into public.auftraege (user_id, titel)
+  values ('11111111-1111-1111-1111-111111111111', 'Bad Lindenstr. 12')
+  returning id into v_id;
+
+  insert into public.auftrag_dokumentation (auftrag_id, user_id, art, text)
+  values (v_id, '11111111-1111-1111-1111-111111111111', 'notiz',
+          'Estrich trocknet bis Freitag.');
+
+  -- Eine Notiz ohne Text und ein Foto ohne Datei sind keine Einträge.
+  begin
+    insert into public.auftrag_dokumentation (auftrag_id, user_id, art)
+    values (v_id, '11111111-1111-1111-1111-111111111111', 'notiz');
+    raise exception 'SCHWERER FEHLER: leere Notiz wurde angenommen';
+  exception when check_violation then null;
+  end;
+
+  begin
+    insert into public.auftrag_dokumentation (auftrag_id, user_id, art)
+    values (v_id, '11111111-1111-1111-1111-111111111111', 'foto');
+    raise exception 'SCHWERER FEHLER: Foto ohne Datei wurde angenommen';
+  exception when check_violation then null;
+  end;
+
+  -- Die Dokumentation ist ein Verlauf: was drinsteht, bleibt drin.
+  -- Ohne Update- und Delete-Policy weist RLS beides stillschweigend ab.
+  update public.auftrag_dokumentation set text = 'umgeschrieben'
+  where auftrag_id = v_id;
+  select count(*) into v_anzahl from public.auftrag_dokumentation
+  where auftrag_id = v_id and text = 'umgeschrieben';
+  if v_anzahl <> 0 then
+    raise exception 'SCHWERER FEHLER: Dokumentation nachträglich änderbar';
+  end if;
+
+  delete from public.auftrag_dokumentation where auftrag_id = v_id;
+  select count(*) into v_anzahl from public.auftrag_dokumentation
+  where auftrag_id = v_id;
+  if v_anzahl <> 1 then
+    raise exception 'SCHWERER FEHLER: Dokumentation löschbar (% übrig)', v_anzahl;
+  end if;
+
+  raise notice '28. Auftrag -> Dokumentation ist ein Verlauf und bleibt stehen';
+end $$;
+
+-- Fremde Aufträge und fremde Dokumentation bleiben fremd.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare v int;
+begin
+  select count(*) into v from public.auftraege;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremder Auftrag sichtbar (%)', v; end if;
+
+  select count(*) into v from public.auftrag_dokumentation;
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: fremde Baustellendokumentation sichtbar (%)', v;
+  end if;
+
+  raise notice '29. RLS -> fremde Aufträge und Dokumentation unsichtbar';
+end $$;
+
+reset role;
