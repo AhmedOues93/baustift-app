@@ -469,6 +469,15 @@ export function RechnungEditor({
             text={`Guten Tag,\n\nanbei unsere Rechnung${rechnung.titel ? ` für ${rechnung.titel}` : ""}.`}
           />
         ) : null}
+        {gestellt ? (
+          <a
+            href={`/api/rechnungen/${rechnung.id}/erechnung`}
+            download={`E-Rechnung-${rechnung.nummer}.xml`}
+            className="inline-flex min-h-11 items-center justify-center rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
+          >
+            E-Rechnung
+          </a>
+        ) : null}
 
         {!gestellt ? (
           <Button variante="akzent" className="flex-1" disabled={pending} onClick={stellen}>
