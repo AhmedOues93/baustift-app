@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { Plakette } from "@/components/ui/field";
 import { MehrAnzeigen, anzahlAusParameter } from "@/components/ui/mehr";
+import { Filterleiste } from "@/components/ui/filterleiste";
+import { NACHFASSEN_NACH_TAGEN, istNachfassFaellig } from "@/lib/angebot";
 import { IconMikrofon, IconSuche } from "@/components/ui/icons";
 import { formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -15,9 +17,6 @@ import {
 
 export const metadata = { title: "Angebote · Baustift" };
 
-/** Ab wann gilt ein verschicktes Angebot als "liegt zu lange"? */
-const NACHFASSEN_NACH_TAGEN = 7;
-
 /**
  * Obergrenze für einen Seitenaufruf. Die Kennzahlen oben rechnen über diese
  * Menge — bis dahin stimmen sie auf die Zeile genau. Wer mehr als 500
@@ -25,12 +24,22 @@ const NACHFASSEN_NACH_TAGEN = 7;
  */
 const OBERGRENZE = 500;
 
+/** Die Filter über der Liste. */
+const FILTER = {
+  alle: "Alle",
+  entwurf: "Entwurf",
+  offen: "Verschickt",
+  nachfassen: "Nachfassen",
+  angenommen: "Angenommen",
+} as const;
+type Filter = keyof typeof FILTER;
+
 export default async function AngebotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; n?: string }>;
+  searchParams: Promise<{ q?: string; f?: string; n?: string }>;
 }) {
-  const { q, n } = await searchParams;
+  const { q, f, n } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -61,14 +70,24 @@ export default async function AngebotePage({
 
   const alle = (angebote ?? []) as Angebot[];
   const suche = (q ?? "").trim().toLowerCase();
-  const liste = suche
-    ? alle.filter((a) =>
-        [a.nummer, a.titel, a.kunde_id ? kundenName.get(a.kunde_id) : ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(suche),
-      )
-    : alle;
+  const filter: Filter = f && f in FILTER ? (f as Filter) : "alle";
+
+  const liste = alle
+    .filter((a) => {
+      if (filter === "entwurf") return a.status === "entwurf";
+      if (filter === "offen") return a.status === "gesendet";
+      if (filter === "nachfassen") return istNachfassFaellig(a);
+      if (filter === "angenommen") return a.status === "angenommen";
+      return true;
+    })
+    .filter((a) =>
+      suche
+        ? [a.nummer, a.titel, a.kunde_id ? kundenName.get(a.kunde_id) : ""]
+            .join(" ")
+            .toLowerCase()
+            .includes(suche)
+        : true,
+    );
 
   // Angezeigt wird erst ein Teil; der Rest kommt über "Weitere anzeigen".
   const anzahl = anzahlAusParameter(n);
@@ -151,14 +170,18 @@ export default async function AngebotePage({
           {faellig.length > 0 ? (
             // Über die volle Breite: bei zwei Spalten bricht der Fusstext auf
             // 390px um und die Karte steht schief neben den anderen beiden.
-            <div className="col-span-2 lg:col-span-1">
+            <Link
+              href="/angebote?f=nachfassen"
+              scroll={false}
+              className="col-span-2 lg:col-span-1"
+            >
               <Kennzahl
                 titel="Nachfassen"
                 wert={String(faellig.length)}
                 fuss={`seit über ${NACHFASSEN_NACH_TAGEN} Tagen ohne Antwort`}
                 ton="warnung"
               />
-            </div>
+            </Link>
           ) : null}
         </section>
       ) : null}
@@ -166,17 +189,50 @@ export default async function AngebotePage({
       {/* Suche als echtes Formular: funktioniert auch ohne JavaScript und
           überlebt einen Reload auf der Baustelle. */}
       {alle.length > 5 ? (
-        <form className="relative">
-          <IconSuche className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-leise" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Kunde, Projekt, Nummer…"
-            aria-label="Angebote durchsuchen"
-            className="min-h-11 w-full rounded-feld border border-linie bg-flaeche py-2 pl-11 pr-3 text-base text-text transition-colors placeholder:text-text-leise/60 focus:border-text focus:outline-none"
-          />
-        </form>
+        <div className="flex flex-col gap-3">
+          <form className="relative">
+            {/* Filter mitschicken, sonst springt die Suche auf "Alle" zurück. */}
+            {filter !== "alle" ? <input type="hidden" name="f" value={filter} /> : null}
+            <IconSuche className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-leise" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Kunde, Projekt, Nummer…"
+              aria-label="Angebote durchsuchen"
+              className="min-h-11 w-full rounded-feld border border-linie bg-flaeche py-2 pl-11 pr-3 text-base text-text transition-colors placeholder:text-text-leise/60 focus:border-text focus:outline-none"
+            />
+          </form>
+
+          <Filterleiste>
+            {(Object.keys(FILTER) as Filter[]).map((wert) => {
+              const aktiv = wert === filter;
+              const parameter = new URLSearchParams();
+              if (q) parameter.set("q", q);
+              if (wert !== "alle") parameter.set("f", wert);
+              const ziel = parameter.toString() ? `?${parameter.toString()}` : "/angebote";
+              return (
+                <Link
+                  key={wert}
+                  href={ziel}
+                  scroll={false}
+                  aria-current={aktiv ? "true" : undefined}
+                  className={[
+                    "inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition-colors",
+                    aktiv
+                      ? "border-tief bg-tief text-text-invers"
+                      : "border-linie bg-flaeche text-text-leise active:bg-papier",
+                  ].join(" ")}
+                >
+                  {FILTER[wert]}
+                  {wert === "nachfassen" && faellig.length > 0 ? (
+                    <span className="zahl ml-1.5">{faellig.length}</span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </Filterleiste>
+        </div>
       ) : null}
 
       {liste.length === 0 ? (
@@ -186,7 +242,7 @@ export default async function AngebotePage({
               Nichts gefunden
             </p>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-text-leise">
-              Andere Suche probieren?
+              {suche ? "Andere Suche probieren?" : "In diesem Filter liegt nichts."}
             </p>
           </div>
         )
@@ -229,7 +285,7 @@ export default async function AngebotePage({
       <MehrAnzeigen
         gezeigt={sichtbar.length}
         gesamt={liste.length}
-        parameter={{ q }}
+        parameter={{ q, f: filter === "alle" ? undefined : filter }}
       />
     </div>
   );
@@ -268,17 +324,6 @@ function Kennzahl({
       </p>
     </div>
   );
-}
-
-/**
- * Ein Angebot ist "nachzufassen", wenn es raus ist und seit einer Woche
- * niemand reagiert hat. Das ist der Punkt, an dem im Handwerk Aufträge
- * liegenbleiben — deshalb steht es im Dashboard und nicht in einem Menü.
- */
-function istNachfassFaellig(a: Angebot): boolean {
-  if (a.status !== "gesendet" || !a.gesendet_am) return false;
-  const tage = (Date.now() - new Date(a.gesendet_am).getTime()) / 86_400_000;
-  return tage >= NACHFASSEN_NACH_TAGEN;
 }
 
 function statusTon(a: Angebot) {

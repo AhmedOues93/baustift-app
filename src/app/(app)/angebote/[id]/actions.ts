@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { angebotNachricht, emailVerfuegbar, sendeEmail } from "@/lib/email/senden";
+import {
+  angebotNachricht,
+  emailVerfuegbar,
+  nachfassNachricht,
+  sendeEmail,
+} from "@/lib/email/senden";
+import { istNachfassFaellig } from "@/lib/angebot";
 import { angebotPdfErzeugen } from "@/lib/pdf/erzeugen";
 import { createClient } from "@/lib/supabase/server";
 import type { AngebotStatus, Einheit } from "@/types/database";
@@ -365,4 +371,106 @@ export async function angebotKopieren(
 
   revalidatePath("/angebote");
   return { angebotId: kopie.id };
+}
+
+/**
+ * Beim Kunden nachfragen, wenn auf ein Angebot keine Antwort kommt.
+ *
+ * Das ist der Vorgang mit dem besten Verhältnis von Aufwand zu Ertrag im
+ * ganzen Produkt: ein verschicktes Angebot, auf das niemand reagiert, ist
+ * meistens kein verlorener Auftrag, sondern ein vergessener. Eine kurze
+ * Nachfrage holt einen Teil davon zurück — nur macht sie kaum jemand, weil
+ * sie unangenehm ist und weil man ohne Übersicht gar nicht weiss, welche
+ * Angebote liegen.
+ *
+ * Die Prüfung läuft serverseitig gegen den frischen Stand: nachgefasst wird
+ * nur bei verschickten Angeboten, bei denen die Frist wirklich um ist. Zweimal
+ * in einer Woche beim selben Kunden anzufragen, wäre genau die
+ * Aufdringlichkeit, die ein Handwerksbetrieb im Ort sich nicht leisten kann.
+ *
+ * Der Status bleibt "gesendet". "nachfassen" wäre eine Lüge: nachgefasst
+ * wurde ja gerade, das Angebot wartet weiter auf eine Entscheidung.
+ */
+export async function angebotNachfassen(
+  angebotId: string,
+): Promise<{ fehler?: string; erfolg?: string }> {
+  if (!emailVerfuegbar()) {
+    return { fehler: "Der E-Mail-Versand ist nicht eingerichtet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+
+  const { data: stand } = await supabase
+    .from("angebote")
+    .select("status, gesendet_am, nachgefasst_am, nachfassungen")
+    .eq("id", angebotId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!stand) return { fehler: "Angebot nicht gefunden." };
+  if (stand.status === "angenommen" || stand.status === "abgelehnt") {
+    return { fehler: "Das Angebot ist entschieden. Da gibt es nichts nachzufassen." };
+  }
+  if (stand.status !== "gesendet" || !stand.gesendet_am) {
+    return { fehler: "Nachfassen geht erst, wenn das Angebot beim Kunden ist." };
+  }
+  if (!istNachfassFaellig(stand)) {
+    return {
+      fehler: stand.nachgefasst_am
+        ? "Du hast gerade erst nachgefragt. Gib dem Kunden ein paar Tage."
+        : "Das Angebot ist noch frisch. Warte ein paar Tage mit der Nachfrage.",
+    };
+  }
+
+  // Das Angebot noch einmal mitschicken: der Kunde soll nicht in alten Mails
+  // suchen müssen, um antworten zu können.
+  const ergebnis = await angebotPdfErzeugen(supabase, angebotId);
+  if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };
+
+  const { angebot, kunde, firma, puffer, dateiname } = ergebnis;
+
+  if (!kunde?.email) {
+    return {
+      fehler:
+        "Für diesen Kunden ist keine E-Mail-Adresse hinterlegt. Trag sie beim Kunden ein.",
+    };
+  }
+
+  const stufe = (stand.nachfassungen ?? 0) + 1;
+
+  const { betreff, text } = nachfassNachricht({
+    firmaName: firma.firma_name,
+    nummer: angebot.nummer,
+    titel: angebot.titel,
+    gueltigBis: angebot.gueltig_bis,
+    ansprechpartner: kunde.ansprechpartner,
+    telefon: firma.telefon,
+    stufe,
+  });
+
+  const versand = await sendeEmail({
+    an: kunde.email,
+    betreff,
+    text,
+    antwortAn: firma.email ?? undefined,
+    anhaenge: [{ dateiname, inhalt: puffer }],
+  });
+
+  if (versand.fehler) return { fehler: versand.fehler };
+
+  // Erst nach erfolgreichem Versand vermerken — sonst verschwindet das
+  // Angebot aus der Nachfass-Liste, ohne dass je eine Mail rausging.
+  await supabase
+    .from("angebote")
+    .update({ nachgefasst_am: new Date().toISOString(), nachfassungen: stufe })
+    .eq("id", angebotId)
+    .eq("user_id", user.id);
+
+  revalidatePath(`/angebote/${angebotId}`);
+  revalidatePath("/angebote");
+  return { erfolg: `Nachfrage an ${kunde.email} verschickt.` };
 }

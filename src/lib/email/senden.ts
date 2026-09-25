@@ -94,6 +94,63 @@ export function angebotNachricht(args: {
   };
 }
 
+/**
+ * Die Nachfrage zu einem Angebot, auf das keine Antwort kam.
+ *
+ * Der schwierigste Text im Produkt. Er darf nicht drängen — der Kunde hat
+ * nichts falsch gemacht, er hat sich noch nicht entschieden, und ein
+ * Handwerksbetrieb im Ort kann es sich nicht leisten, aufdringlich zu wirken.
+ * Er darf aber auch nicht so zurückhaltend sein, dass er keine Antwort
+ * auslöst; dann hätte man ihn sich sparen können.
+ *
+ * Der Ausweg ist, eine Frage zu stellen statt zu erinnern: offene Punkte,
+ * Termin, Preis. Darauf antwortet man. Auf "wir erlauben uns, höflich
+ * nachzufragen" antwortet niemand.
+ */
+export function nachfassNachricht(args: {
+  firmaName: string;
+  nummer: string;
+  titel: string;
+  gueltigBis: string | null;
+  ansprechpartner: string | null;
+  telefon: string | null;
+  /** Die wievielte Nachfrage das ist (1 = die erste). */
+  stufe: number;
+}): { betreff: string; text: string } {
+  const anrede = args.ansprechpartner
+    ? `Guten Tag ${args.ansprechpartner},`
+    : "Guten Tag,";
+
+  const gueltig = args.gueltigBis
+    ? `\n\nDas Angebot gilt noch bis zum ${formatDatum(args.gueltigBis)}.`
+    : "";
+
+  const einleitung =
+    args.stufe <= 1
+      ? `vor einiger Zeit haben wir Ihnen unser Angebot${args.titel ? ` für ${args.titel}` : ""} geschickt.`
+      : `wir hatten uns zu unserem Angebot${args.titel ? ` für ${args.titel}` : ""} schon einmal gemeldet.`;
+
+  const rueckfragen = args.telefon
+    ? `\n\nAm schnellsten geht es telefonisch: ${args.telefon}.`
+    : "";
+
+  return {
+    betreff:
+      args.stufe <= 1
+        ? `Nachfrage zu unserem Angebot ${args.nummer}`
+        : `Noch einmal: unser Angebot ${args.nummer}`,
+    text:
+      `${anrede}\n\n` +
+      einleitung +
+      ` Ich wollte kurz nachfragen, ob dazu noch etwas offen ist — ` +
+      `beim Umfang, beim Termin oder beim Preis. Wenn etwas nicht passt, ` +
+      `lässt sich das meistens einrichten.` +
+      gueltig +
+      rueckfragen +
+      `\n\nMit freundlichen Grüssen\n${args.firmaName}`,
+  };
+}
+
 /** Der Text zu einer Rechnung. */
 export function rechnungNachricht(args: {
   firmaName: string;

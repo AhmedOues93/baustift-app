@@ -23,15 +23,56 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => db.client,
   createAdminClient: async () => db.client,
 }));
+/**
+ * E-Mail-Versand als Doppelgänger: die Nachfass-Tests müssen sehen, ob eine
+ * Mail rausging und an wen — und der Versand muss umschaltbar sein, weil die
+ * App ohne Resend-Schlüssel weiterläuft.
+ */
+const post = {
+  verfuegbar: false,
+  gesendet: [] as { an: string; betreff: string }[],
+  fehler: undefined as string | undefined,
+};
+
 vi.mock("@/lib/email/senden", () => ({
-  emailVerfuegbar: () => false,
-  sendeEmail: async () => ({}),
+  emailVerfuegbar: () => post.verfuegbar,
+  sendeEmail: async (args: { an: string; betreff: string }) => {
+    if (post.fehler) return { fehler: post.fehler };
+    post.gesendet.push({ an: args.an, betreff: args.betreff });
+    return {};
+  },
   angebotNachricht: () => ({ betreff: "", text: "" }),
+  nachfassNachricht: (args: { stufe: number }) => ({
+    betreff: `Nachfrage (Stufe ${args.stufe})`,
+    text: "",
+  }),
 }));
 
-const { angebotKopieren, angebotSpeichern, statusSetzen } = await import(
-  "./actions",
-);
+vi.mock("@/lib/pdf/erzeugen", () => ({
+  angebotPdfErzeugen: async (_client: unknown, id: string) => {
+    const angebot = db.tabellen.angebote.find((a) => a.id === id);
+    if (!angebot) return { fehler: "Angebot nicht gefunden." };
+    return {
+      angebot,
+      kunde: db.tabellen.kunden?.[0] ?? null,
+      firma: db.tabellen.profiles[0],
+      puffer: Buffer.from("PDF"),
+      dateiname: `${angebot.nummer}.pdf`,
+    };
+  },
+}));
+
+const {
+  angebotKopieren,
+  angebotNachfassen,
+  angebotSpeichern,
+  statusSetzen,
+} = await import("./actions");
+
+/** Ein Zeitpunkt vor `tage` Tagen. */
+function vor(tage: number): string {
+  return new Date(Date.now() - tage * 86_400_000).toISOString();
+}
 
 beforeEach(() => {
   db = fakeSupabase(
@@ -43,10 +84,21 @@ beforeEach(() => {
         { id: "p1", angebot_id: "a1", pos_nr: 1, bezeichnung: "Fliesen", beschreibung: null, menge: 8, einheit: "m2", einzelpreis: 52, zu_pruefen: false },
         { id: "p2", angebot_id: "a1", pos_nr: 2, bezeichnung: "WC", beschreibung: null, menge: 1, einheit: "stk", einzelpreis: 380, zu_pruefen: true },
       ],
-      profiles: [{ id: "u1", mwst_satz: 19, kleinunternehmer: false, angebot_gueltig_tage: 14 }],
+      profiles: [
+        {
+          id: "u1", mwst_satz: 19, kleinunternehmer: false, angebot_gueltig_tage: 14,
+          firma_name: "Müller Sanitär GmbH", email: "info@mueller.de", telefon: "0221 1234",
+        },
+      ],
+      kunden: [
+        { id: "k1", user_id: "u1", name: "Familie Becker", email: "becker@example.de", ansprechpartner: null },
+      ],
     },
     { rpc: { next_angebot_nummer: "AN-2026-0002" } },
   );
+  post.verfuegbar = false;
+  post.gesendet = [];
+  post.fehler = undefined;
 });
 
 function speichern(positionen: any[], extra: Partial<Record<string, unknown>> = {}) {
@@ -209,5 +261,99 @@ describe("angebotKopieren", () => {
     const ergebnis = await angebotKopieren("a1");
     expect(ergebnis.fehler).toContain("nicht gefunden");
     expect(db.tabellen.angebote).toHaveLength(1);
+  });
+});
+
+describe("angebotNachfassen", () => {
+  /** Ein verschicktes Angebot, seit `tage` Tagen ohne Antwort. */
+  function liegt(tage: number, extra: Record<string, unknown> = {}) {
+    Object.assign(db.tabellen.angebote[0], {
+      nummer: "AN-2026-0001",
+      status: "gesendet",
+      gesendet_am: vor(tage),
+      nachgefasst_am: null,
+      nachfassungen: 0,
+      gueltig_bis: "2026-12-31",
+      ...extra,
+    });
+    post.verfuegbar = true;
+  }
+
+  it("fragt nach und vermerkt es am Angebot", async () => {
+    liegt(10);
+
+    const ergebnis = await angebotNachfassen("a1");
+
+    expect(ergebnis.erfolg).toContain("becker@example.de");
+    expect(post.gesendet).toHaveLength(1);
+    const a = db.tabellen.angebote[0];
+    expect(a.nachfassungen).toBe(1);
+    expect(a.nachgefasst_am).toBeTruthy();
+    // Der Status bleibt "gesendet": nachgefasst wurde ja gerade, das Angebot
+    // wartet weiter auf eine Entscheidung.
+    expect(a.status).toBe("gesendet");
+  });
+
+  it("zählt die Stufe hoch", async () => {
+    liegt(30, { nachgefasst_am: vor(10), nachfassungen: 1 });
+
+    await angebotNachfassen("a1");
+
+    expect(post.gesendet[0].betreff).toBe("Nachfrage (Stufe 2)");
+    expect(db.tabellen.angebote[0].nachfassungen).toBe(2);
+  });
+
+  it("fragt nicht nach, solange das Angebot frisch ist", async () => {
+    liegt(3);
+
+    const ergebnis = await angebotNachfassen("a1");
+
+    expect(ergebnis.fehler).toContain("frisch");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("fragt nicht zweimal in derselben Woche nach", async () => {
+    liegt(30, { nachgefasst_am: vor(2), nachfassungen: 1 });
+
+    const ergebnis = await angebotNachfassen("a1");
+
+    // Genau die Aufdringlichkeit, die einen Kunden im Ort kostet.
+    expect(ergebnis.fehler).toContain("gerade erst");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("fragt nicht zu einem entschiedenen Angebot nach", async () => {
+    liegt(30, { status: "angenommen" });
+
+    const ergebnis = await angebotNachfassen("a1");
+    expect(ergebnis.fehler).toContain("entschieden");
+  });
+
+  it("fragt nicht zu einem Entwurf nach", async () => {
+    liegt(30, { status: "entwurf", gesendet_am: null });
+
+    const ergebnis = await angebotNachfassen("a1");
+    expect(ergebnis.fehler).toContain("beim Kunden");
+  });
+
+  it("vermerkt nichts, wenn der Versand scheitert", async () => {
+    liegt(10);
+    post.fehler = "Resend antwortet nicht.";
+
+    const ergebnis = await angebotNachfassen("a1");
+
+    expect(ergebnis.fehler).toBe("Resend antwortet nicht.");
+    // Sonst verschwindet das Angebot aus der Nachfass-Liste, ohne dass je
+    // eine Mail rausging.
+    expect(db.tabellen.angebote[0].nachfassungen).toBe(0);
+    expect(db.tabellen.angebote[0].nachgefasst_am).toBeNull();
+  });
+
+  it("fragt nicht zu fremden Angeboten nach", async () => {
+    liegt(10, { user_id: "jemand-anderes" });
+
+    const ergebnis = await angebotNachfassen("a1");
+    expect(ergebnis.fehler).toContain("nicht gefunden");
+    expect(post.gesendet).toHaveLength(0);
   });
 });

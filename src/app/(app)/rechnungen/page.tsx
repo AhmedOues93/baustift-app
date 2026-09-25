@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Plakette } from "@/components/ui/field";
 import { IconSuche } from "@/components/ui/icons";
+import { Filterleiste } from "@/components/ui/filterleiste";
 import { MehrAnzeigen, anzahlAusParameter } from "@/components/ui/mehr";
 import { formatEuro } from "@/lib/format";
 import { rechnungUeberfaellig } from "@/lib/rechnung";
@@ -160,10 +161,7 @@ export default async function RechnungenPage({
             />
           </form>
 
-          {/* Waagrecht scrollbar statt umbrechend: vier Pillen passen auf
-              390px nicht in eine Zeile, zwei Zeilen kosten Platz über der
-              Liste. */}
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+          <Filterleiste>
             {(Object.keys(FILTER) as Filter[]).map((wert) => {
               const aktiv = wert === filter;
               const parameter = new URLSearchParams();
@@ -190,7 +188,7 @@ export default async function RechnungenPage({
                 </Link>
               );
             })}
-          </div>
+          </Filterleiste>
         </div>
       ) : null}
 

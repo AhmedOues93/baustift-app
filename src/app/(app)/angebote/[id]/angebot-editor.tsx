@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   angebotKopieren,
   angebotLoeschen,
+  angebotNachfassen,
   angebotSpeichern,
   angebotVersenden,
   statusSetzen,
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/icons";
 import { Sheet } from "@/components/ui/sheet";
 import { TeilenKnopf } from "@/components/ui/teilen";
+import { istNachfassFaellig, tageOhneAntwort } from "@/lib/angebot";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
 import {
   ANGEBOT_STATUS_LABEL,
@@ -215,6 +217,18 @@ export function AngebotEditor({
     });
   }
 
+  function nachfassen() {
+    statusStarten(async () => {
+      const ergebnis = await angebotNachfassen(angebot.id);
+      setVersandMeldung(
+        ergebnis.fehler
+          ? { art: "fehler", text: ergebnis.fehler }
+          : { art: "erfolg", text: ergebnis.erfolg ?? "Nachfrage verschickt." },
+      );
+      router.refresh();
+    });
+  }
+
   const kunde = kunden.find((k) => k.id === kundeId);
   const kannVersenden = versandMoeglich && Boolean(kunde?.email);
 
@@ -255,6 +269,40 @@ export function AngebotEditor({
           ))}
         </select>
       </header>
+
+      {/* Liegt beim Kunden ---------------------------------------------------
+          Ein verschicktes Angebot ohne Antwort ist meistens kein verlorener
+          Auftrag, sondern ein vergessener. Das gehört nach oben, nicht in
+          eine Kennzahl, mit der man nichts tun kann. */}
+      {istNachfassFaellig(angebot) ? (
+        <section className="rounded-karte bg-warnung-flaeche p-4">
+          <p className="font-medium text-warnung">
+            Seit <span className="zahl">{tageOhneAntwort(angebot)}</span> Tagen
+            beim Kunden, ohne Antwort
+          </p>
+          <p className="mt-1 text-sm text-warnung">
+            {angebot.nachfassungen > 0 && angebot.nachgefasst_am
+              ? `Zuletzt nachgefragt am ${formatDatum(angebot.nachgefasst_am.slice(0, 10))}`
+              : "Noch nicht nachgefragt."}
+          </p>
+          {kannVersenden ? (
+            <Button
+              variante="akzent"
+              className="mt-3 w-full sm:w-auto"
+              disabled={statusPending}
+              onClick={nachfassen}
+            >
+              <IconSenden className="h-5 w-5" />
+              {angebot.nachfassungen > 0 ? "Noch einmal nachfragen" : "Nachfragen"}
+            </Button>
+          ) : (
+            <p className="mt-2 text-sm text-warnung">
+              Für die Nachfrage per E-Mail fehlt eine Adresse beim Kunden — ein
+              Anruf tut es auch.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {/* Hinweise --------------------------------------------------------------
           Knapp gehalten: beide stehen vor den Positionen, und alles, was hier
@@ -642,4 +690,10 @@ function runde(n: number): number {
 /** 8 → "8", 2.5 → "2,5" — Mengen ohne unnötige Nullen. */
 function formatMenge(n: number): string {
   return String(n).replace(".", ",");
+}
+
+/** Aus 2026-09-25 wird 25.09.2026 — so steht es auf jedem deutschen Beleg. */
+function formatDatum(iso: string): string {
+  const [jahr, monat, tag] = iso.slice(0, 10).split("-");
+  return `${tag}.${monat}.${jahr}`;
 }
