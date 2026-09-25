@@ -450,10 +450,9 @@ export function RechnungEditor({
       {/* Aktionen ------------------------------------------------------------ */}
       <section className="sticky bottom-[calc(theme(spacing.navleiste)+env(safe-area-inset-bottom))] z-30 -mx-4 flex gap-2 border-t border-linie bg-papier/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
         <a
-          href={`/api/rechnungen/${rechnung.id}/pdf`}
-          target="_blank"
-          rel="noopener"
-          aria-label="PDF öffnen"
+          href={`/api/rechnungen/${rechnung.id}/pdf?download=1`}
+          aria-label="PDF herunterladen"
+          title="PDF herunterladen"
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
         >
           <IconPdf className="h-5 w-5" />
@@ -468,6 +467,14 @@ export function RechnungEditor({
             titel={`Rechnung ${rechnung.nummer}`}
             text={`Guten Tag,\n\nanbei unsere Rechnung${rechnung.titel ? ` für ${rechnung.titel}` : ""}.`}
           />
+        ) : null}
+        {gestellt ? (
+          <a
+            href={`/api/rechnungen/${rechnung.id}/erechnung`}
+            className="inline-flex min-h-11 items-center justify-center rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
+          >
+            E-Rechnung
+          </a>
         ) : null}
 
         {!gestellt ? (

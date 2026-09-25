@@ -67,17 +67,21 @@ export async function angebotPdfErzeugen(
 
   if (!firma) return { fehler: "Firmendaten fehlen." };
 
-  const logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  let logoDataUrl: string | null = null;
+  try {
+    logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  } catch (error) {
+    console.warn("PDF-Logo konnte nicht geladen werden.", error);
+  }
 
-  const puffer = await renderToBuffer(
-    AngebotPdf({
-      angebot: angebot as Angebot,
-      positionen: (positionen ?? []) as Position[],
-      kunde: (kundeErgebnis.data ?? null) as Kunde | null,
-      firma: firma as Profile,
-      logoDataUrl,
-    }),
-  );
+  const dokument = AngebotPdf({
+    angebot: angebot as Angebot,
+    positionen: (positionen ?? []) as Position[],
+    kunde: (kundeErgebnis.data ?? null) as Kunde | null,
+    firma: firma as Profile,
+    logoDataUrl,
+  });
+  const puffer = await renderToBuffer(dokument);
 
   return {
     puffer,
@@ -130,17 +134,21 @@ export async function rechnungPdfErzeugen(
 
   if (!firma) return { fehler: "Firmendaten fehlen." };
 
-  const logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  let logoDataUrl: string | null = null;
+  try {
+    logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  } catch (error) {
+    console.warn("PDF-Logo konnte nicht geladen werden.", error);
+  }
 
-  const puffer = await renderToBuffer(
-    RechnungPdf({
-      rechnung: rechnung as Rechnung,
-      positionen: (positionen ?? []) as RechnungPosition[],
-      kunde: (kundeErgebnis.data ?? null) as Kunde | null,
-      firma: firma as Profile,
-      logoDataUrl,
-    }),
-  );
+  const dokument = RechnungPdf({
+    rechnung: rechnung as Rechnung,
+    positionen: (positionen ?? []) as RechnungPosition[],
+    kunde: (kundeErgebnis.data ?? null) as Kunde | null,
+    firma: firma as Profile,
+    logoDataUrl,
+  });
+  const puffer = await renderToBuffer(dokument);
 
   return {
     puffer,

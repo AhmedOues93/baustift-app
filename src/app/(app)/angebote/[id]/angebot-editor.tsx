@@ -150,10 +150,16 @@ export function AngebotEditor({
     };
   }, [titel, kundeId, notiz, zeilen, speichern]);
 
-  // Beim Verlassen der Seite noch offene Änderungen nicht verlieren.
+  // Vor einem echten Seitenwechsel nur warnen, wenn noch ungespeicherte
+  // Änderungen offen sind. Während des kurzen Autosave-Vorgangs ist die
+  // Navigation nicht blockiert; sonst zeigt Android beim PDF-Download trotz
+  // bereits laufender Speicherung unnötig "Website verlassen?".
   useEffect(() => {
     function warnen(e: BeforeUnloadEvent) {
-      if (zustand === "offen" || zustand === "speichert") e.preventDefault();
+      if (zustand === "offen") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
     }
     window.addEventListener("beforeunload", warnen);
     return () => window.removeEventListener("beforeunload", warnen);
@@ -400,10 +406,9 @@ export function AngebotEditor({
           Desktop steht sie normal im Fluss. */}
       <section className="sticky bottom-[calc(theme(spacing.navleiste)+env(safe-area-inset-bottom))] z-30 -mx-4 flex gap-2 border-t border-linie bg-papier/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
         <a
-          href={`/api/angebote/${angebot.id}/pdf`}
-          target="_blank"
-          rel="noopener"
-          aria-label="PDF öffnen"
+          href={`/api/angebote/${angebot.id}/pdf?download=1`}
+          aria-label="PDF herunterladen"
+          title="PDF herunterladen"
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
         >
           <IconPdf className="h-5 w-5" />

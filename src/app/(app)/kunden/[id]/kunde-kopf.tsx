@@ -52,12 +52,20 @@ export function KundeKopf({ kunde }: { kunde: Kunde }) {
               </a>
             ) : null}
             {kunde.email ? (
-              <a
-                href={`mailto:${kunde.email}`}
-                className="inline-flex min-h-11 items-center rounded-gross border border-linie bg-flaeche px-4 text-sm font-medium text-text transition-colors active:bg-papier"
-              >
-                {kunde.email}
-              </a>
+              <>
+                <a
+                  href={`mailto:${kunde.email}`}
+                  className="inline-flex min-h-11 items-center rounded-gross border border-linie bg-flaeche px-4 text-sm font-medium text-text transition-colors active:bg-papier"
+                >
+                  {kunde.email}
+                </a>
+                <a
+                  href={`mailto:${kunde.email}?subject=${encodeURIComponent(`Nachricht an ${kunde.name}`)}`}
+                  className="inline-flex min-h-11 items-center rounded-gross bg-akzent px-4 text-sm font-medium text-white transition-colors active:opacity-80"
+                >
+                  E-Mail schreiben
+                </a>
+              </>
             ) : null}
           </div>
         ) : null}
