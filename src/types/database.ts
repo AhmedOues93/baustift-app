@@ -21,6 +21,9 @@ export type AngebotStatus =
   | "nachfassen";
 
 export type EingabeArt = "sprache" | "text" | "kopie";
+export type AufmassStatus = "offen" | "abgeschlossen";
+/** Wie ein Mass gerechnet wird — bestimmt zugleich die Einheit (0012). */
+export type MessungArt = "flaeche" | "laenge" | "volumen" | "stueck";
 export type FeedbackArt = "problem" | "idee" | "lob";
 
 export const FEEDBACK_ART_LABEL: Record<FeedbackArt, string> = {
@@ -208,6 +211,48 @@ export type Rechnung = {
   updated_at: string;
 };
 
+/**
+ * Ein Aufmass — die Session, die der Handwerker beim Messen offen lässt.
+ * Langlebig: Pausen, Telefonate und Bildschirmsperren überdauern sie.
+ */
+export type Aufmass = {
+  id: string;
+  user_id: string;
+  kunde_id: string | null;
+  titel: string;
+  status: AufmassStatus;
+  notiz: string | null;
+  /** Das Angebot, das daraus entstanden ist. */
+  angebot_id: string | null;
+  abgeschlossen_am: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Eine einzelne Messung. `wert` und `einheit` rechnet die Datenbank (0012). */
+export type AufmassPosition = {
+  id: string;
+  aufmass_id: string;
+  pos_nr: number;
+  raum: string | null;
+  bezeichnung: string;
+  art: MessungArt;
+  laenge: number | null;
+  breite: number | null;
+  hoehe: number | null;
+  anzahl: number;
+  /** Fenster und Türen gehen von der Wandfläche ab. */
+  abzug: boolean;
+  /** Generiert: null, solange ein nötiges Mass fehlt. */
+  wert: number | null;
+  /** Generiert aus `art`. */
+  einheit: Einheit;
+  gesprochen: string | null;
+  zu_pruefen: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type RechnungPosition = {
   id: string;
   rechnung_id: string;
@@ -320,6 +365,23 @@ export type Database = {
         Update: Partial<KiNutzung>;
         Relationships: [];
       };
+      aufmass: {
+        Row: Aufmass;
+        Insert: Omit<Aufmass, "id" | "created_at" | "updated_at"> & { id?: string };
+        Update: Partial<Aufmass>;
+        Relationships: [];
+      };
+      aufmass_positionen: {
+        Row: AufmassPosition;
+        // `wert` und `einheit` sind generierte Spalten: sie werden nie
+        // geschrieben, sondern immer gerechnet.
+        Insert: Omit<
+          AufmassPosition,
+          "id" | "created_at" | "updated_at" | "wert" | "einheit"
+        > & { id?: string };
+        Update: Partial<Omit<AufmassPosition, "wert" | "einheit">>;
+        Relationships: [];
+      };
       rechnungen: {
         Row: Rechnung;
         // gemahnt_am und mahnungen haben Vorgaben in der Datenbank: beim
@@ -398,6 +460,8 @@ export type Database = {
       eingabe_art: EingabeArt;
       feedback_art: FeedbackArt;
       einheit: Einheit;
+      aufmass_status: AufmassStatus;
+      messung_art: MessungArt;
     };
     CompositeTypes: {
       [_ in never]: never;

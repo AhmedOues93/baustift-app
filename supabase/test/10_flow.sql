@@ -446,3 +446,100 @@ begin
 
   raise notice '21. Nur der Logo-Speicher existiert — kein Ort für Aufnahmen';
 end $$;
+
+-- =========================================================================
+-- 11. Aufmass
+-- =========================================================================
+set role app_user;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+do $$
+declare
+  v_id   uuid;
+  v_wert numeric;
+  v_einh einheit;
+begin
+  insert into public.aufmass (user_id, titel)
+  values ('11111111-1111-1111-1111-111111111111', 'Bad Lindenstr. 12')
+  returning id into v_id;
+
+  -- Fläche: 2,40 × 1,80 = 4,32 m²
+  insert into public.aufmass_positionen
+    (aufmass_id, pos_nr, raum, bezeichnung, art, laenge, breite)
+  values (v_id, 1, 'Bad', 'Boden', 'flaeche', 2.40, 1.80);
+
+  select wert, einheit into v_wert, v_einh
+  from public.aufmass_positionen where aufmass_id = v_id and pos_nr = 1;
+
+  if v_wert <> 4.32 then
+    raise exception 'FEHLER: Fläche falsch gerechnet (%)', v_wert;
+  end if;
+  if v_einh <> 'm2' then
+    raise exception 'FEHLER: Einheit folgt nicht der Art (%)', v_einh;
+  end if;
+
+  -- Anzahl geht mit ein: 3 × 1,20 × 1,40 = 5,04 m²
+  insert into public.aufmass_positionen
+    (aufmass_id, pos_nr, bezeichnung, art, laenge, breite, anzahl, abzug)
+  values (v_id, 2, 'Fenster', 'flaeche', 1.20, 1.40, 3, true);
+
+  select wert into v_wert from public.aufmass_positionen
+  where aufmass_id = v_id and pos_nr = 2;
+  if v_wert <> 5.04 then
+    raise exception 'FEHLER: Anzahl nicht eingerechnet (%)', v_wert;
+  end if;
+
+  -- Fehlendes Mass ergibt NULL, nicht 0: eine 0 sähe aus wie ein Ergebnis.
+  insert into public.aufmass_positionen
+    (aufmass_id, pos_nr, bezeichnung, art, laenge)
+  values (v_id, 3, 'Unvollständig', 'flaeche', 3.00);
+
+  select wert into v_wert from public.aufmass_positionen
+  where aufmass_id = v_id and pos_nr = 3;
+  if v_wert is not null then
+    raise exception 'FEHLER: unvollständiges Mass ergibt % statt NULL', v_wert;
+  end if;
+
+  raise notice '22. Aufmass -> Fläche, Anzahl und Einheit rechnet die Datenbank';
+
+  -- Abgeschlossen heisst zu.
+  update public.aufmass set status = 'abgeschlossen', abgeschlossen_am = now()
+  where id = v_id;
+
+  begin
+    insert into public.aufmass_positionen (aufmass_id, pos_nr, bezeichnung, art, laenge, breite)
+    values (v_id, 4, 'Nachträglich', 'flaeche', 1, 1);
+    raise exception 'SCHWERER FEHLER: abgeschlossenes Aufmass nimmt noch Zeilen an';
+  exception when check_violation then null;
+  end;
+
+  begin
+    update public.aufmass_positionen set laenge = 99 where aufmass_id = v_id and pos_nr = 1;
+    raise exception 'SCHWERER FEHLER: abgeschlossenes Aufmass ist noch änderbar';
+  exception when check_violation then null;
+  end;
+
+  -- Wieder öffnen ist ausdrücklich erlaubt.
+  update public.aufmass set status = 'offen' where id = v_id;
+  update public.aufmass_positionen set laenge = 2.50 where aufmass_id = v_id and pos_nr = 1;
+
+  raise notice '23. Abgeschlossenes Aufmass ist zu, wieder öffnen geht';
+end $$;
+
+-- Und fremde Aufmasse bleiben fremd.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare v int;
+begin
+  select count(*) into v from public.aufmass;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremdes Aufmass sichtbar (%)', v; end if;
+
+  select count(*) into v from public.aufmass_positionen;
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: fremde Messungen sichtbar (%)', v;
+  end if;
+
+  raise notice '24. RLS -> fremde Aufmasse und Messungen bleiben unsichtbar';
+end $$;
+
+reset role;
