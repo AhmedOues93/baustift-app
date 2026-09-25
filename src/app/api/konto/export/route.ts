@@ -19,7 +19,13 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return new Response("Nicht angemeldet.", { status: 401 });
 
-  const [profil, kunden, preisliste, angebote, positionen, rechnungen, rechnungPositionen, nutzung, rueckmeldungen] =
+  // Jede Tabelle mit Nutzerdaten gehört hier hinein. Kommt eine neue dazu und
+  // wird hier vergessen, ist der Export unvollständig — und Art. 20 DSGVO
+  // verlangt vollständig, nicht ungefähr.
+  const [
+    profil, kunden, preisliste, angebote, positionen, rechnungen,
+    rechnungPositionen, aufmasse, messungen, nutzung, rueckmeldungen,
+  ] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("kunden").select("*"),
@@ -28,6 +34,8 @@ export async function GET() {
       supabase.from("positionen").select("*"),
       supabase.from("rechnungen").select("*"),
       supabase.from("rechnung_positionen").select("*"),
+      supabase.from("aufmass").select("*"),
+      supabase.from("aufmass_positionen").select("*"),
       supabase.from("ki_nutzung").select("*"),
       supabase.from("feedback").select("*"),
     ]);
@@ -44,6 +52,8 @@ export async function GET() {
     angebotspositionen: positionen.data ?? [],
     rechnungen: rechnungen.data ?? [],
     rechnungspositionen: rechnungPositionen.data ?? [],
+    aufmasse: aufmasse.data ?? [],
+    messungen: messungen.data ?? [],
     ki_nutzung: nutzung.data ?? [],
     rueckmeldungen: rueckmeldungen.data ?? [],
   };

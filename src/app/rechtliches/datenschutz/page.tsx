@@ -98,9 +98,14 @@ export default function DatenschutzPage() {
         </li>
         <li>
           <strong>Inhaltsdaten:</strong> Preisliste, Kunden, Angebote,
-          Rechnungen und die dazugehörigen Positionen. Darin sind in der Regel
+          Rechnungen, Aufmasse und die dazugehörigen Positionen. Darin sind in der Regel
           personenbezogene Daten der Auftraggeber enthalten — Name, Anschrift,
           Kontaktdaten, Angaben zum Bauvorhaben.
+        </li>
+        <li>
+          <strong>Aufmasse:</strong> die beim Messen erfassten Räume,
+          Bezeichnungen und Masse sowie der dabei gesprochene Satz. Er bleibt
+          gespeichert, damit ein Wert später nachvollziehbar ist.
         </li>
         <li>
           <strong>Diktate:</strong> die Sprachaufnahme wird zur Umwandlung in
