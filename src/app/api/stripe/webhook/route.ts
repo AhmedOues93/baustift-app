@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { serverEnv } from "@/lib/env";
 import { protokolliereFehler } from "@/lib/protokoll";
 import { aboStatusAus, stripe } from "@/lib/stripe/client";
+import { ereignisZeit, istVeraltet } from "@/lib/stripe/reihenfolge";
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
@@ -53,6 +54,30 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   try {
+    /**
+     * Stripe garantiert die Zustellung, nicht die Reihenfolge. Ein
+     * Wiederholungsversuch eines alten Ereignisses kann nach einem neueren
+     * ankommen — und würde dann jemanden herabstufen, dessen Zahlung längst
+     * durch ist. Deshalb erst prüfen, wie alt das zuletzt Verarbeitete war.
+     */
+    const aktualisiere = async (
+      userId: string,
+      werte: { stripe_subscription_id: string; subscription_status: string },
+    ) => {
+      const { data: profil } = await admin
+        .from("profiles")
+        .select("stripe_ereignis_am")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (istVeraltet(profil?.stripe_ereignis_am, ereignis.created)) return;
+
+      await admin
+        .from("profiles")
+        .update({ ...werte, stripe_ereignis_am: ereignisZeit(ereignis.created) })
+        .eq("id", userId);
+    };
+
     if (ereignis.type === "checkout.session.completed") {
       const sitzung = ereignis.data.object;
       const userId = await findeUserId(admin, sitzung.customer, sitzung.metadata);
@@ -60,28 +85,22 @@ export async function POST(request: Request) {
         const abo = await stripe().subscriptions.retrieve(
           String(sitzung.subscription),
         );
-        await admin
-          .from("profiles")
-          .update({
-            stripe_subscription_id: abo.id,
-            subscription_status: aboStatusAus(abo.status),
-          })
-          .eq("id", userId);
+        await aktualisiere(userId, {
+          stripe_subscription_id: abo.id,
+          subscription_status: aboStatusAus(abo.status),
+        });
       }
     } else {
       const abo = ereignis.data.object as Stripe.Subscription;
       const userId = await findeUserId(admin, abo.customer, abo.metadata);
       if (userId) {
-        await admin
-          .from("profiles")
-          .update({
-            stripe_subscription_id: abo.id,
-            subscription_status:
-              ereignis.type === "customer.subscription.deleted"
-                ? "gekuendigt"
-                : aboStatusAus(abo.status),
-          })
-          .eq("id", userId);
+        await aktualisiere(userId, {
+          stripe_subscription_id: abo.id,
+          subscription_status:
+            ereignis.type === "customer.subscription.deleted"
+              ? "gekuendigt"
+              : aboStatusAus(abo.status),
+        });
       }
     }
   } catch (fehler) {

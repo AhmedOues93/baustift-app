@@ -20,7 +20,7 @@ const firma: Profile = {
   ust_id: "DE123456789", iban: "DE02 3705 0198 0000 1234 56", bic: "COLSDE33",
   bank_name: "Sparkasse", logo_url: null, kleinunternehmer: false, mwst_satz: 19,
   angebot_gueltig_tage: 30, stripe_customer_id: null, stripe_subscription_id: null,
-  subscription_status: "aktiv", onboarding_am: null, av_zugestimmt_am: null,
+  subscription_status: "aktiv", stripe_ereignis_am: null, onboarding_am: null, av_zugestimmt_am: null,
   agb_zugestimmt_am: null, created_at: "", updated_at: "",
 };
 

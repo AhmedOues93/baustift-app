@@ -95,6 +95,8 @@ export type Profile = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string;
+  /** Zeit des zuletzt verarbeiteten Stripe-Ereignisses (0015). */
+  stripe_ereignis_am: string | null;
   onboarding_am: string | null;
   av_zugestimmt_am: string | null;
   agb_zugestimmt_am: string | null;

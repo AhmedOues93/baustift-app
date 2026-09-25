@@ -44,7 +44,7 @@ const firma: Profile = {
   angebot_gueltig_tage: 30,
   stripe_customer_id: null,
   stripe_subscription_id: null,
-  subscription_status: "aktiv",
+  subscription_status: "aktiv", stripe_ereignis_am: null,
   onboarding_am: null,
   av_zugestimmt_am: null,
   agb_zugestimmt_am: null,
