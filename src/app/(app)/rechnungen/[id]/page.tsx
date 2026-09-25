@@ -6,7 +6,7 @@ import { RechnungEditor } from "./rechnung-editor";
 import { IconZurueck } from "@/components/ui/icons";
 import { emailVerfuegbar } from "@/lib/email/senden";
 import { createClient } from "@/lib/supabase/server";
-import type { Kunde, Rechnung, RechnungPosition } from "@/types/database";
+import type { Kunde, Rechnung, RechnungPosition, RechnungZahlung } from "@/types/database";
 
 export const metadata = { title: "Rechnung · Baustift" };
 
@@ -22,7 +22,7 @@ export default async function RechnungPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: rechnung }, { data: positionen }, { data: kunden }] =
+  const [{ data: rechnung }, { data: positionen }, { data: kunden }, { data: zahlungen }] =
     await Promise.all([
       supabase.from("rechnungen").select("*").eq("id", id).maybeSingle(),
       supabase
@@ -31,6 +31,7 @@ export default async function RechnungPage({
         .eq("rechnung_id", id)
         .order("pos_nr"),
       supabase.from("kunden").select("*").order("name"),
+      supabase.from("rechnung_zahlungen").select("*").eq("rechnung_id", id).order("bezahlt_am", { ascending: false }),
     ]);
 
   if (!rechnung) notFound();
@@ -50,6 +51,7 @@ export default async function RechnungPage({
         positionen={(positionen ?? []) as RechnungPosition[]}
         kunden={(kunden ?? []) as Kunde[]}
         versandMoeglich={emailVerfuegbar()}
+        zahlungen={(zahlungen ?? []) as RechnungZahlung[]}
       />
 
       {/* Löschen gibt es nur für Entwürfe. Ein gestellter Beleg wird
