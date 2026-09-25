@@ -13,6 +13,7 @@ import {
   type PositionEingabe,
 } from "./actions";
 import { rechnungAusAngebot } from "@/app/(app)/rechnungen/actions";
+import { auftragAusAngebot } from "@/app/(app)/auftraege/actions";
 import { Button } from "@/components/ui/button";
 import { Meldung, Plakette } from "@/components/ui/field";
 import {
@@ -437,22 +438,29 @@ export function AngebotEditor({
                 : "Als gesendet markieren"}
           </Button>
         ) : angebot.status === "angenommen" ? (
-          // Auftrag erhalten: der nächste Schritt ist die Rechnung, nicht
-          // noch ein Statuswechsel.
-          <Button
-            variante="akzent"
-            className="flex-1"
-            disabled={statusPending}
-            onClick={() =>
-              statusStarten(async () => {
+          <div className="flex flex-1 gap-2">
+            <Button
+              variante="akzent"
+              className="flex-1"
+              disabled={statusPending}
+              onClick={() => statusStarten(async () => {
                 await speichern();
-                await rechnungAusAngebot(angebot.id);
-              })
-            }
-          >
-            <IconRechnung className="h-5 w-5" />
-            In Rechnung umwandeln
-          </Button>
+                const ergebnis = await auftragAusAngebot(angebot.id);
+                if (ergebnis.id) router.push(`/auftraege/${ergebnis.id}`);
+                else setVersandMeldung({ art: "fehler", text: ergebnis.fehler ?? "Auftrag konnte nicht erstellt werden." });
+              })}
+            >
+              Auftrag erstellen
+            </Button>
+            <Button
+              variante="sekundaer"
+              disabled={statusPending}
+              onClick={() => statusStarten(async () => { await speichern(); await rechnungAusAngebot(angebot.id); })}
+            >
+              <IconRechnung className="h-5 w-5" />
+              Rechnung
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">
             <Button
