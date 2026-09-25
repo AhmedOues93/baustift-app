@@ -427,3 +427,22 @@ begin
 
   raise notice '20. Erinnerung vermerkbar, Beträge bleiben gesperrt';
 end $$;
+
+-- =========================================================================
+-- 10. Speicherorte
+-- =========================================================================
+-- Die Datenschutzerklärung sagt zu, dass keine Sprachaufnahmen gespeichert
+-- werden. Diese Zusage hängt hier nicht am Verhalten der Anwendung, sondern
+-- daran, dass es den Ort dafür gar nicht gibt.
+do $$
+declare v_uebrig text[];
+begin
+  select coalesce(array_agg(id order by id), '{}') into v_uebrig
+  from storage.buckets;
+
+  if v_uebrig <> array['logos'] then
+    raise exception 'FEHLER: unerwartete Speicherorte: %', v_uebrig;
+  end if;
+
+  raise notice '21. Nur der Logo-Speicher existiert — kein Ort für Aufnahmen';
+end $$;
