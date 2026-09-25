@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { redirect } from "next/navigation";
 
 import { BottomNav, Sidebar } from "@/components/navigation";
@@ -17,6 +19,15 @@ import { createClient } from "@/lib/supabase/server";
  * Die Session prüft zusätzlich die Middleware. Der Check hier ist die zweite
  * Absicherung — und liefert uns den Nutzer für die Seiten darunter.
  */
+/**
+ * Alles hinter der Anmeldung gehört nicht in eine Suchmaschine. Ohne Session
+ * ist hier zwar nichts auszuliefern, aber die Adressen der Vorgänge haben in
+ * einem Index nichts verloren.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function AppLayout({
   children,
 }: {

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
+import { publicEnv } from "@/lib/env";
+
 import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
@@ -35,6 +37,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  // Ohne metadataBase bleiben die Bild-Adressen im Teilen-Vorschaubild
+  // relativ — und WhatsApp, LinkedIn und die Suchmaschinen finden sie nicht.
+  metadataBase: new URL(publicEnv.siteUrl),
   title: "Baustift — Angebote in Sekunden",
   description:
     "Sprich deine Leistung ein, Baustift erstellt das professionelle Angebot als PDF.",

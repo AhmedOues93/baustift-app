@@ -20,7 +20,12 @@ export const config = {
      * Startseite ist für Leute gedacht, die noch kein Konto haben. Ohne die
      * Ausnahme landen sie beim Klick darauf auf der Anmeldung — ausgerechnet
      * an der Stelle, an der sie sich das Produkt erst ansehen wollen.
+     *
+     * robots.txt und sitemap.xml ebenso: eine Suchmaschine, die statt der
+     * Datei eine Weiterleitung auf /login bekommt, nimmt die Seite nicht
+     * richtig auf. Das fällt niemandem auf — man sieht nur, dass niemand
+     * kommt.
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|icons/|bilder/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|pdf)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|sw.js|offline.html|icons/|bilder/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|pdf)$).*)",
   ],
 };

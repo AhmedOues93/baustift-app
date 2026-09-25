@@ -29,26 +29,73 @@ import { NACHFASSEN_NACH_TAGEN } from "@/lib/angebot";
  * irgendwann etwas anderes zu versprechen, als die Software tut.
  */
 
+const BESCHREIBUNG =
+  "Sprich auf der Baustelle ein, was gemacht wird. Baustift erkennt die " +
+  "Positionen, rechnet mit deiner Preisliste und macht ein fertiges Angebot " +
+  "als PDF. Für Handwerksbetriebe.";
+
 export const metadata: Metadata = {
   title: "Baustift — Angebote einsprechen statt tippen",
-  description:
-    "Sprich auf der Baustelle ein, was gemacht wird. Baustift erkennt die Positionen, rechnet mit deiner Preisliste und macht ein fertiges Angebot als PDF. Für Handwerksbetriebe.",
+  description: BESCHREIBUNG,
   keywords: [
     "Angebot Handwerk", "Angebotssoftware Handwerker", "Aufmass App",
     "Handwerkersoftware", "Rechnung schreiben Handwerk", "E-Rechnung",
   ],
+  alternates: { canonical: "/" },
   openGraph: {
     title: "Baustift — Angebote einsprechen statt tippen",
     description:
       "Einsprechen, prüfen, senden. Das Angebot ist fertig, bevor du im Auto sitzt.",
     type: "website",
     locale: "de_DE",
+    siteName: "Baustift",
+    // Das Bild ist der echte Kopf dieser Seite — so sieht der Empfänger in
+    // WhatsApp genau das, was ihn nach dem Antippen erwartet.
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Baustift" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Baustift — Angebote einsprechen statt tippen",
+    description:
+      "Einsprechen, prüfen, senden. Das Angebot ist fertig, bevor du im Auto sitzt.",
+    images: ["/og.png"],
   },
 };
+
+/**
+ * Strukturierte Daten für die Suchmaschinen.
+ *
+ * Damit in den Ergebnissen Preis und Art der Anwendung stehen können, statt
+ * nur ein Textschnipsel. Die Zahlen kommen auch hier aus der Konstante — eine
+ * abweichende Angabe in den strukturierten Daten wäre eine falsche
+ * Preisauszeichnung, und die ist abmahnfähig.
+ */
+function strukturierteDaten() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Baustift",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web, iOS, Android",
+    inLanguage: "de",
+    description: BESCHREIBUNG,
+    offers: {
+      "@type": "Offer",
+      price: String(PREIS_MONATLICH_EUR),
+      priceCurrency: "EUR",
+      description: `${PREIS_MONATLICH_EUR} € pro Monat zzgl. MwSt., monatlich kündbar`,
+    },
+  };
+}
 
 export default function StartSeite() {
   return (
     <div className="min-h-screen bg-papier">
+      <script
+        type="application/ld+json"
+        // Nur eigene, statisch erzeugte Daten — kein Fremdinhalt.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(strukturierteDaten()) }}
+      />
       <Kopfleiste />
       <main>
         <Hero />

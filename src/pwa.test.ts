@@ -88,7 +88,26 @@ describe("Middleware-Matcher", () => {
   // Supabase-Stack nach, und geprüft werden soll hier nur der Pfadfilter.
   const quelle = lies("src/middleware.ts").toString("utf8");
   const treffer = quelle.match(/"(\/\(\(\?!.*)",/);
-  const muster = new RegExp(`^${treffer?.[1] ?? ""}$`);
+  // Im Quelltext steht der Ausdruck in einer Zeichenkette: dort ist jeder
+  // Rückstrich verdoppelt. Ohne dieses Zurückwandeln entstünde ein anderes
+  // Muster als das, das Next tatsächlich benutzt — und der Test prüfte etwas,
+  // das es nicht gibt. Genau das war er eine Zeit lang.
+  const muster = new RegExp(`^${(treffer?.[1] ?? "").replace(/\\\\/g, "\\")}$`);
+
+  it("lässt die öffentlichen Dateien durch", () => {
+    // Dieselbe Falle wie bei den PWA-Dateien, nur mit anderem Schaden: eine
+    // Suchmaschine, die auf /login umgeleitet wird, nimmt die Seite nicht
+    // auf, und ein Besucher ohne Konto kommt nicht an das Muster-Angebot.
+    for (const pfad of [
+      "/robots.txt",
+      "/sitemap.xml",
+      "/og.png",
+      "/muster-angebot.pdf",
+      "/bilder/aufnahme.png",
+    ]) {
+      expect(muster.test(pfad), `${pfad} wird abgefangen`).toBe(false);
+    }
+  });
 
   it("lässt die PWA-Dateien durch", () => {
     // Fängt die Middleware sie ab, bekommt der Browser ohne Session eine
