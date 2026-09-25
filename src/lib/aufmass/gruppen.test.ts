@@ -134,3 +134,15 @@ describe("Darstellung", () => {
     expect(gruppenName(gruppiere([messung({ wert: 6 })])[0])).toBe("Fläche");
   });
 });
+
+describe("Wenn die Abzüge grösser sind als die Fläche", () => {
+  it("ergibt eine negative Menge", () => {
+    // Kommt vor: er misst zuerst die Abzüge und die Wand danach — oder
+    // vergisst die Wand ganz. Die Gruppierung rechnet das ehrlich aus.
+    const gruppen = gruppiere([
+      messung({ raum: "Bad", bezeichnung: "Fenster", wert: 1.68, abzug: true }),
+      messung({ raum: "Bad", bezeichnung: "Tür", wert: 1.89, abzug: true }),
+    ]);
+    expect(gruppen[0].menge).toBe(-3.57);
+  });
+});

@@ -205,3 +205,31 @@ describe("messungSpeichern", () => {
     expect(db.tabellen.aufmass_positionen[0].anzahl).toBe(1);
   });
 });
+
+describe("Wenn die Abzüge überwiegen", () => {
+  it("übernimmt keine Position mit negativer Menge", async () => {
+    // Eine Zeile über "−3,57 m²" wäre nicht nur falsch — sie ginge so zum
+    // Kunden.
+    db.tabellen.aufmass_positionen = [
+      messung({ pos_nr: 1, raum: "Bad", bezeichnung: "Fenster", wert: 1.68, abzug: true }),
+      messung({ pos_nr: 2, raum: "Bad", bezeichnung: "Tür", wert: 1.89, abzug: true }),
+    ];
+
+    const ergebnis = await angebotAusAufmass("auf1", {});
+
+    expect(ergebnis.fehler).toContain("Abzüge sind grösser");
+    expect(db.tabellen.angebote).toHaveLength(0);
+  });
+
+  it("lässt die brauchbaren Gruppen durch und die kaputte weg", async () => {
+    db.tabellen.aufmass_positionen = [
+      messung({ pos_nr: 1, raum: "Bad", bezeichnung: "Fenster", wert: 5, abzug: true }),
+      messung({ pos_nr: 2, raum: "Küche", bezeichnung: "Boden", wert: 12 }),
+    ];
+
+    await angebotAusAufmass("auf1", {});
+
+    expect(db.tabellen.positionen).toHaveLength(1);
+    expect(db.tabellen.positionen[0].menge).toBe(12);
+  });
+});

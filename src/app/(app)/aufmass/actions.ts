@@ -316,9 +316,26 @@ export async function angebotAusAufmass(
     return { fehler: "Aus diesem Aufmass wurde schon ein Angebot erstellt." };
   }
 
-  const gruppen = gruppiere((messungen ?? []) as AufmassPosition[]);
+  const alleGruppen = gruppiere((messungen ?? []) as AufmassPosition[]);
+
+  /**
+   * Gruppen mit einer Menge von null oder weniger fliegen raus.
+   *
+   * Das passiert, wenn die Abzüge grösser sind als die gemessene Fläche —
+   * etwa weil erst die Fenster aufgenommen wurden und die Wand dazu fehlt.
+   * Eine Angebotsposition über "−3,57 m²" wäre nicht nur falsch, sie ginge
+   * so auch zum Kunden. Lieber gar nicht übernehmen und im Aufmass sichtbar
+   * lassen, wo es klemmt.
+   */
+  const gruppen = alleGruppen.filter((g) => g.menge > 0);
+
   if (gruppen.length === 0) {
-    return { fehler: "Da ist noch nichts zu rechnen." };
+    return {
+      fehler:
+        alleGruppen.length === 0
+          ? "Da ist noch nichts zu rechnen."
+          : "Die Abzüge sind grösser als die gemessenen Flächen. Bitte das Aufmass prüfen.",
+    };
   }
 
   const katalog = (preisliste ?? []) as PreislisteEintrag[];

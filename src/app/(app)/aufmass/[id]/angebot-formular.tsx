@@ -44,7 +44,11 @@ export function AngebotAusAufmass({
   const [fehler, setFehler] = useState<string | null>(null);
   const [pending, starten] = useTransition();
 
-  const gruppen = gruppiere(messungen);
+  const alleGruppen = gruppiere(messungen);
+  // Nur Gruppen mit einer Menge über null kommen ins Angebot; die anderen
+  // stehen trotzdem da, damit sichtbar ist, wo es klemmt.
+  const gruppen = alleGruppen.filter((g) => g.menge > 0);
+  const negative = alleGruppen.filter((g) => g.menge <= 0);
 
   // Schon erstellt: dann führt hier nur noch der Weg dorthin.
   if (angebotId) {
@@ -87,6 +91,19 @@ export function AngebotAusAufmass({
           ohne Preis ins Angebot und wird dort markiert.
         </p>
       </div>
+
+      {negative.length > 0 ? (
+        <div className="rounded-feld bg-warnung-flaeche p-3 text-sm text-warnung">
+          <p className="font-medium">
+            {negative.length === 1 ? "Eine Gruppe wird" : `${negative.length} Gruppen werden`}{" "}
+            nicht übernommen
+          </p>
+          <p className="mt-1">
+            {negative.map((g) => gruppenName(g)).join(", ")} — dort sind die
+            Abzüge grösser als die gemessene Fläche. Fehlt eine Wand?
+          </p>
+        </div>
+      ) : null}
 
       {gruppen.map((g) => {
         // Nur Leistungen mit passender Einheit: 42 m² mit einem Stundensatz
