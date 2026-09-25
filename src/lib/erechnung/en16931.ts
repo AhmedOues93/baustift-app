@@ -54,6 +54,27 @@ export function rechnungEn16931Xml(args: {
   if (!positionen.length) fehlt.push("Rechnungspositionen");
   if (fehlt.length) throw new Error(`E-Rechnung unvollstaendig: ${fehlt.join(", ")}.`);
 
+  /**
+   * Eine Stornorechnung ist in der Norm eine Gutschrift (381), keine Rechnung
+   * über einen negativen Betrag. Die Norm verbietet negative Einzelpreise
+   * (BR-27) — als 380 verschickt würde die Datei von jeder ordentlichen
+   * Prüfung abgelehnt. Also: anderer Dokumenttyp, Beträge positiv.
+   */
+  const istGutschrift = r.status === "storniert" || r.netto < 0;
+  const typCode = istGutschrift ? "381" : "380";
+  const betrag = (n: number) => zahl(istGutschrift ? Math.abs(n) : n);
+
+  /**
+   * Bei Steuerbefreiung (Kategorie E) verlangt die Norm zwingend einen Grund
+   * (BR-E-10). Fehlt er, wird die Rechnung abgewiesen — ein Kleinunternehmer
+   * könnte dann gar keine E-Rechnung stellen.
+   */
+  const steuerKategorie = r.mwst_satz > 0 ? "S" : "E";
+  const befreiungsgrund =
+    steuerKategorie === "E"
+      ? "<ram:ExemptionReason>Steuerbefreit nach § 19 UStG (Kleinunternehmer).</ram:ExemptionReason>"
+      : "";
+
   const sellerTax = f.ust_id
     ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${xml(f.ust_id)}</ram:ID></ram:SpecifiedTaxRegistration>`
     : `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${xml(f.steuernummer)}</ram:ID></ram:SpecifiedTaxRegistration>`;
@@ -62,18 +83,18 @@ export function rechnungEn16931Xml(args: {
     <ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument><ram:LineID>${i + 1}</ram:LineID></ram:AssociatedDocumentLineDocument>
       <ram:SpecifiedTradeProduct><ram:Name>${xml(p.bezeichnung)}</ram:Name>${p.beschreibung ? `<ram:Description>${xml(p.beschreibung)}</ram:Description>` : ""}</ram:SpecifiedTradeProduct>
-      <ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${zahl(p.einzelpreis)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement>
+      <ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${betrag(p.einzelpreis)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement>
       <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="${einheit(p.einheit)}">${zahl(p.menge)}</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
       <ram:SpecifiedLineTradeSettlement>
-        <ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${r.mwst_satz > 0 ? "S" : "E"}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
-        <ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${zahl(p.gesamtpreis)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation>
+        <ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${steuerKategorie}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+        <ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${betrag(p.gesamtpreis)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation>
       </ram:SpecifiedLineTradeSettlement>
     </ram:IncludedSupplyChainTradeLineItem>`).join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
   <rsm:ExchangedDocumentContext><ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>urn:cen.eu:en16931:2017</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter></rsm:ExchangedDocumentContext>
-  <rsm:ExchangedDocument><ram:ID>${xml(r.nummer)}</ram:ID><ram:TypeCode>380</ram:TypeCode><ram:IssueDateTime><udt:DateTimeString format="102">${datum(r.datum)}</udt:DateTimeString></ram:IssueDateTime></rsm:ExchangedDocument>
+  <rsm:ExchangedDocument><ram:ID>${xml(r.nummer)}</ram:ID><ram:TypeCode>${typCode}</ram:TypeCode><ram:IssueDateTime><udt:DateTimeString format="102">${datum(r.datum)}</udt:DateTimeString></ram:IssueDateTime></rsm:ExchangedDocument>
   <rsm:SupplyChainTradeTransaction>
     ${lines}
     <ram:ApplicableHeaderTradeAgreement>
@@ -83,10 +104,10 @@ export function rechnungEn16931Xml(args: {
     <ram:ApplicableHeaderTradeDelivery><ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime><udt:DateTimeString format="102">${datum(r.leistung_von)}</udt:DateTimeString></ram:OccurrenceDateTime></ram:ActualDeliverySupplyChainEvent></ram:ApplicableHeaderTradeDelivery>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
-      <ram:ApplicableTradeTax><ram:CalculatedAmount>${zahl(r.mwst_betrag)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode><ram:BasisAmount>${zahl(r.netto)}</ram:BasisAmount><ram:CategoryCode>${r.mwst_satz > 0 ? "S" : "E"}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+      <ram:ApplicableTradeTax><ram:CalculatedAmount>${betrag(r.mwst_betrag)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>${befreiungsgrund}<ram:BasisAmount>${betrag(r.netto)}</ram:BasisAmount><ram:CategoryCode>${steuerKategorie}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
       ${f.iban ? `<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>58</ram:TypeCode><ram:PayeePartyCreditorFinancialAccount><ram:IBANID>${xml(f.iban.replaceAll(" ", ""))}</ram:IBANID></ram:PayeePartyCreditorFinancialAccount></ram:SpecifiedTradeSettlementPaymentMeans>` : ""}
       ${r.faellig_am ? `<ram:SpecifiedTradePaymentTerms><ram:DueDateDateTime><udt:DateTimeString format="102">${datum(r.faellig_am)}</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>` : ""}
-      <ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${zahl(r.netto)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${zahl(r.netto)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${zahl(r.mwst_betrag)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${zahl(r.brutto)}</ram:GrandTotalAmount><ram:DuePayableAmount>${zahl(r.brutto)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${betrag(r.netto)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${betrag(r.netto)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${betrag(r.mwst_betrag)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${betrag(r.brutto)}</ram:GrandTotalAmount><ram:DuePayableAmount>${betrag(r.brutto)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
     </ram:ApplicableHeaderTradeSettlement>
   </rsm:SupplyChainTradeTransaction>
 </rsm:CrossIndustryInvoice>`;
