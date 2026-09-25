@@ -20,7 +20,7 @@ export type AngebotStatus =
   | "abgelehnt"
   | "nachfassen";
 
-export type EingabeArt = "sprache" | "text" | "kopie";
+export type EingabeArt = "sprache" | "text" | "kopie" | "aufmass";
 export type AufmassStatus = "offen" | "abgeschlossen";
 /** Wie ein Mass gerechnet wird — bestimmt zugleich die Einheit (0012). */
 export type MessungArt = "flaeche" | "laenge" | "volumen" | "stueck";
@@ -439,6 +439,8 @@ export type Database = {
           p_user_id: string;
           p_max?: number;
           p_fenster_sekunden?: number;
+          /** Getrennte Zähler je Vorgang (0013): "angebot", "aufmass". */
+          p_art?: string;
         };
         Returns: boolean;
       };

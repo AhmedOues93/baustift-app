@@ -278,3 +278,21 @@ export function IconTeilen({ className = basis }: Props) {
     </svg>
   );
 }
+
+export function IconLineal({ className = basis }: Props) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="8" width="20" height="8" rx="1.5" />
+      <path d="M6 8v3M10 8v4M14 8v3M18 8v4" />
+    </svg>
+  );
+}

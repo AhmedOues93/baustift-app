@@ -5,7 +5,7 @@ import { Plakette } from "@/components/ui/field";
 import { MehrAnzeigen, anzahlAusParameter } from "@/components/ui/mehr";
 import { Filterleiste } from "@/components/ui/filterleiste";
 import { NACHFASSEN_NACH_TAGEN, istNachfassFaellig } from "@/lib/angebot";
-import { IconMikrofon, IconSuche } from "@/components/ui/icons";
+import { IconLineal, IconMikrofon, IconSuche } from "@/components/ui/icons";
 import { formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -150,6 +150,22 @@ export default async function AngebotePage({
           </span>
           <span className={["block text-text-invers/70", alle.length === 0 ? "mt-2 text-base" : "text-sm"].join(" ")}>
             Einsprechen — fertig in einer Minute
+          </span>
+        </span>
+      </Link>
+
+      {/* Der zweite Weg zu einem Angebot: erst messen, dann rechnen.
+          Bewusst schmaler als das Diktat — es ist der seltenere Fall, aber
+          der, den man beim Aufmass-Termin sucht. */}
+      <Link
+        href="/aufmass"
+        className="flex min-h-14 items-center gap-3 rounded-karte border border-linie bg-flaeche px-4 py-3 transition-colors active:bg-papier"
+      >
+        <IconLineal className="h-6 w-6 shrink-0 text-text-leise" />
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium text-text">Aufmass</span>
+          <span className="block truncate text-sm text-text-leise">
+            Masse einsprechen, während du misst
           </span>
         </span>
       </Link>

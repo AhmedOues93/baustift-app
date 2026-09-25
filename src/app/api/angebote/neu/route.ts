@@ -75,6 +75,9 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       p_user_id: user.id,
       p_max: RATE_LIMIT_MAX,
       p_fenster_sekunden: RATE_LIMIT_FENSTER_SEKUNDEN,
+      // Eigener Zähler: ein Aufmass mit zwanzig Messungen darf die
+      // Angebotserstellung nicht ausbremsen und umgekehrt.
+      p_art: "angebot",
     },
   );
   if (bremseFehler) {
