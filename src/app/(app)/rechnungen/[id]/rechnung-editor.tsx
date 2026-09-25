@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Meldung, Plakette } from "@/components/ui/field";
 import { IconKreuz, IconPdf, IconPlus, IconSenden } from "@/components/ui/icons";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
+import { TeilenKnopf } from "@/components/ui/teilen";
 import { rechnungUeberfaellig, tageUeberfaellig } from "@/lib/rechnung";
 import {
   EINHEIT_LABEL,
@@ -453,11 +454,21 @@ export function RechnungEditor({
           target="_blank"
           rel="noopener"
           aria-label="PDF öffnen"
-          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
         >
           <IconPdf className="h-5 w-5" />
-          <span className="hidden sm:inline">PDF</span>
         </a>
+
+        {/* Nur für gestellte Rechnungen: ein Entwurf ist kein Beleg, den man
+            aus der Hand gibt. */}
+        {gestellt ? (
+          <TeilenKnopf
+            pfad={`/api/rechnungen/${rechnung.id}/pdf`}
+            dateiname={`${rechnung.nummer}.pdf`}
+            titel={`Rechnung ${rechnung.nummer}`}
+            text={`Guten Tag,\n\nanbei unsere Rechnung${rechnung.titel ? ` für ${rechnung.titel}` : ""}.`}
+          />
+        ) : null}
 
         {!gestellt ? (
           <Button variante="akzent" className="flex-1" disabled={pending} onClick={stellen}>

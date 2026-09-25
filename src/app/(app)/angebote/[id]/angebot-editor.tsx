@@ -24,6 +24,7 @@ import {
   IconSenden,
 } from "@/components/ui/icons";
 import { Sheet } from "@/components/ui/sheet";
+import { TeilenKnopf } from "@/components/ui/teilen";
 import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
 import {
   ANGEBOT_STATUS_LABEL,
@@ -355,11 +356,18 @@ export function AngebotEditor({
           target="_blank"
           rel="noopener"
           aria-label="PDF öffnen"
-          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-gross border border-linie bg-flaeche px-4 font-medium text-text transition-colors active:bg-papier"
         >
           <IconPdf className="h-5 w-5" />
-          <span className="hidden sm:inline">PDF</span>
         </a>
+
+        {/* Teilen: der Weg, den die meisten wirklich gehen — WhatsApp. */}
+        <TeilenKnopf
+          pfad={`/api/angebote/${angebot.id}/pdf`}
+          dateiname={`${angebot.nummer}.pdf`}
+          titel={`Angebot ${angebot.nummer}`}
+          text={`Guten Tag,\n\nanbei unser Angebot${titel ? ` für ${titel}` : ""}.`}
+        />
 
         {angebot.status === "entwurf" ? (
           <Button
