@@ -150,10 +150,16 @@ export function AngebotEditor({
     };
   }, [titel, kundeId, notiz, zeilen, speichern]);
 
-  // Beim Verlassen der Seite noch offene Änderungen nicht verlieren.
+  // Vor einem echten Seitenwechsel nur warnen, wenn noch ungespeicherte
+  // Änderungen offen sind. Während des kurzen Autosave-Vorgangs ist die
+  // Navigation nicht blockiert; sonst zeigt Android beim PDF-Download trotz
+  // bereits laufender Speicherung unnötig "Website verlassen?".
   useEffect(() => {
     function warnen(e: BeforeUnloadEvent) {
-      if (zustand === "offen" || zustand === "speichert") e.preventDefault();
+      if (zustand === "offen") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
     }
     window.addEventListener("beforeunload", warnen);
     return () => window.removeEventListener("beforeunload", warnen);
