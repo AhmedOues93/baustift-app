@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   IconAngebote,
   IconKonto,
+  IconLineal,
   IconKunden,
   IconPreisliste,
   IconRechnung,
@@ -32,6 +33,7 @@ import {
 const EINTRAEGE = [
   { href: "/angebote", label: "Angebote", Icon: IconAngebote },
   { href: "/rechnungen", label: "Rechnungen", Icon: IconRechnung },
+  { href: "/auftraege", label: "Aufträge", Icon: IconLineal },
   { href: "/kunden", label: "Kunden", Icon: IconKunden },
   { href: "/preisliste", label: "Preise", langLabel: "Preisliste", Icon: IconPreisliste },
   { href: "/einstellungen", label: "Konto", Icon: IconKonto },
@@ -69,7 +71,7 @@ export function BottomNav() {
                   // Fünf Tabs auf 390px sind je 78px breit — immer noch weit
                   // über den 44px Mindestgrösse, aber das Label braucht
                   // etwas weniger Schrift, damit "Rechnungen" nicht umbricht.
-                  "flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 py-2 text-[11px] leading-tight",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 py-2 text-[10px] leading-tight",
                   "transition-colors",
                   aktiv
                     ? "font-semibold text-akzent"
