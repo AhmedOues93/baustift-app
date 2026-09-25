@@ -290,10 +290,31 @@ export async function rechnungTeilzahlungErfassen(args: {
   }
   if (rechnung.status === "storniert") return { fehler: "Die Rechnung ist storniert." };
 
-  const { data: stand } = await supabase.rpc("rechnung_zahlungsstand", {
-    p_rechnung_id: args.rechnungId,
-  });
-  const offen = Number(stand?.[0]?.offen ?? rechnung.brutto);
+  /**
+   * Der offene Betrag wird aus den gebuchten Zahlungen gerechnet, nicht aus
+   * einer Datenbankfunktion mit Rückfallwert.
+   *
+   * Vorher stand hier `stand?.[0]?.offen ?? rechnung.brutto`: antwortete die
+   * Funktion nicht — weil sie fehlt, weil ein Recht fehlt —, galt die
+   * Rechnung als vollständig offen. Eine zweite Zahlung über den ganzen
+   * Betrag wäre dann stillschweigend durchgegangen, obwohl der Kunde längst
+   * gezahlt hat. Eine Summe über die eigenen Zeilen kann das nicht.
+   */
+  const { data: bisher, error: standFehler } = await supabase
+    .from("rechnung_zahlungen")
+    .select("betrag")
+    .eq("rechnung_id", args.rechnungId);
+
+  if (standFehler) {
+    return { fehler: "Der Zahlungsstand konnte nicht geprueft werden." };
+  }
+
+  const bezahlt = (bisher ?? []).reduce((s, z) => s + Number(z.betrag), 0);
+  const offen = Math.round((rechnung.brutto - bezahlt) * 100) / 100;
+
+  if (offen <= 0) {
+    return { fehler: "Die Rechnung ist bereits vollstaendig bezahlt." };
+  }
   if (betrag > offen + 0.005) {
     return { fehler: `Der Betrag ist hoeher als der offene Restbetrag (${formatEuro(offen)}).` };
   }

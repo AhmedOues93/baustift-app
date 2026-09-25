@@ -550,3 +550,71 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 12. Teilzahlungen
+-- =========================================================================
+set role app_user;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+do $$
+declare
+  v_id     uuid;
+  v_offen  numeric;
+  v_bezahlt numeric;
+begin
+  select id into v_id from public.rechnungen where nummer = 'RE-2026-0001';
+
+  insert into public.rechnung_zahlungen (rechnung_id, user_id, betrag, notiz)
+  values (v_id, '11111111-1111-1111-1111-111111111111', 100.00, 'Anzahlung');
+
+  select bezahlt, offen into v_bezahlt, v_offen
+  from public.rechnung_zahlungsstand(v_id);
+
+  if v_bezahlt <> 100.00 then
+    raise exception 'FEHLER: Zahlungsstand falsch (%)', v_bezahlt;
+  end if;
+
+  -- Ein Betrag von 0 oder weniger ist keine Zahlung.
+  begin
+    insert into public.rechnung_zahlungen (rechnung_id, user_id, betrag)
+    values (v_id, '11111111-1111-1111-1111-111111111111', 0);
+    raise exception 'SCHWERER FEHLER: Nullbetrag wurde gebucht';
+  exception when check_violation then null;
+  end;
+
+  raise notice '25. Teilzahlung -> gebucht, Stand stimmt, Nullbetrag abgewiesen';
+end $$;
+
+-- Auf einen Entwurf darf nichts gebucht werden.
+do $$
+declare v_id uuid;
+begin
+  insert into public.rechnungen (user_id, nummer, titel, datum, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', 'RE-2026-8888', 'Entwurf',
+          current_date, 19)
+  returning id into v_id;
+
+  begin
+    insert into public.rechnung_zahlungen (rechnung_id, user_id, betrag)
+    values (v_id, '11111111-1111-1111-1111-111111111111', 50);
+    raise exception 'SCHWERER FEHLER: Zahlung auf einen Entwurf gebucht';
+  exception when insufficient_privilege then null;
+  end;
+
+  raise notice '26. Auf einen Entwurf lässt sich nichts buchen';
+end $$;
+
+-- Und fremde Zahlungen bleiben fremd.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare v int;
+begin
+  select count(*) into v from public.rechnung_zahlungen;
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: fremde Zahlungen sichtbar (%)', v;
+  end if;
+  raise notice '27. RLS -> fremde Zahlungen bleiben unsichtbar';
+end $$;
+
+reset role;

@@ -68,6 +68,7 @@ vi.mock("@/lib/pdf/erzeugen", () => ({
 const {
   rechnungAusAngebot,
   rechnungMahnen,
+  rechnungTeilzahlungErfassen,
   rechnungSpeichern,
   rechnungStellen,
   rechnungStornieren,
@@ -391,5 +392,89 @@ describe("rechnungMahnen", () => {
 
     const ergebnis = await rechnungMahnen("r9");
     expect(ergebnis.fehler).toContain("nicht eingerichtet");
+  });
+});
+
+describe("rechnungTeilzahlungErfassen", () => {
+  /** Eine gestellte Rechnung über 1.190 €. */
+  function gestellt(extra: Record<string, unknown> = {}) {
+    db.tabellen.rechnungen.push({
+      id: "r9", user_id: "u1", kunde_id: "k1", nummer: "RE-2026-0009",
+      titel: "Badsanierung", status: "gestellt", datum: "2026-09-01",
+      faellig_am: "2026-09-15", netto: 1000, mwst_satz: 19, mwst_betrag: 190,
+      brutto: 1190, festgeschrieben_am: "2026-09-01T00:00:00Z",
+      bezahlt_am: null, gemahnt_am: null, mahnungen: 0, ...extra,
+    });
+    db.tabellen.rechnung_zahlungen = [];
+  }
+
+  it("bucht eine Anzahlung, ohne die Rechnung auf bezahlt zu setzen", async () => {
+    gestellt();
+
+    const ergebnis = await rechnungTeilzahlungErfassen({
+      rechnungId: "r9", betrag: 400, notiz: "Anzahlung",
+    });
+
+    expect(ergebnis.fehler).toBeUndefined();
+    expect(ergebnis.vollBezahlt).toBe(false);
+    expect(db.tabellen.rechnung_zahlungen).toHaveLength(1);
+    expect(db.tabellen.rechnung_zahlungen[0].betrag).toBe(400);
+    // Noch offen — sonst verschwindet sie aus dem Nachfassen.
+    expect(db.tabellen.rechnungen.find((r) => r.id === "r9")!.status).toBe("gestellt");
+  });
+
+  it("setzt auf bezahlt, sobald nichts mehr offen ist", async () => {
+    gestellt();
+    db.tabellen.rechnung_zahlungen = [
+      { id: "z1", rechnung_id: "r9", user_id: "u1", betrag: 1000, bezahlt_am: "2026-09-05", notiz: null },
+    ];
+
+    const ergebnis = await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: 190 });
+
+    expect(ergebnis.vollBezahlt).toBe(true);
+    const r = db.tabellen.rechnungen.find((x) => x.id === "r9")!;
+    expect(r.status).toBe("bezahlt");
+    expect(r.bezahlt_am).toBeTruthy();
+  });
+
+  it("nimmt nicht mehr an, als offen ist", async () => {
+    gestellt();
+
+    const ergebnis = await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: 2000 });
+
+    // Eine Überzahlung wäre ein Tippfehler, keine Buchung.
+    expect(ergebnis.fehler).toContain("hoeher als der offene");
+    expect(db.tabellen.rechnung_zahlungen).toHaveLength(0);
+  });
+
+  it("weist Null und negative Beträge ab", async () => {
+    gestellt();
+    expect((await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: 0 })).fehler)
+      .toBeTruthy();
+    expect((await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: -50 })).fehler)
+      .toBeTruthy();
+    expect(db.tabellen.rechnung_zahlungen).toHaveLength(0);
+  });
+
+  it("bucht nichts auf einen Entwurf", async () => {
+    gestellt({ status: "entwurf", festgeschrieben_am: null });
+
+    const ergebnis = await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: 100 });
+    expect(ergebnis.fehler).toContain("gestellte");
+  });
+
+  it("bucht nichts auf eine stornierte Rechnung", async () => {
+    gestellt({ status: "storniert" });
+
+    const ergebnis = await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: 100 });
+    expect(ergebnis.fehler).toContain("storniert");
+  });
+
+  it("bucht nichts auf fremde Rechnungen", async () => {
+    gestellt({ user_id: "jemand-anderes" });
+
+    const ergebnis = await rechnungTeilzahlungErfassen({ rechnungId: "r9", betrag: 100 });
+    expect(ergebnis.fehler).toBeTruthy();
+    expect(db.tabellen.rechnung_zahlungen).toHaveLength(0);
   });
 });
