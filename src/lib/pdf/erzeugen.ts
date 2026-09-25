@@ -1,6 +1,6 @@
 import "server-only";
 
-import { pdf } from "@react-pdf/renderer";
+import { renderToStream } from "@react-pdf/renderer";
 
 import { AngebotPdf } from "@/lib/pdf/angebot-pdf";
 import { RechnungPdf } from "@/lib/pdf/rechnung-pdf";
@@ -81,8 +81,12 @@ export async function angebotPdfErzeugen(
     firma: firma as Profile,
     logoDataUrl,
   });
-  const blob = await pdf(dokument).toBlob();
-  const puffer = Buffer.from(await blob.arrayBuffer());
+  const stream = await renderToStream(dokument);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const puffer = Buffer.concat(chunks);
 
   return {
     puffer,
@@ -149,8 +153,12 @@ export async function rechnungPdfErzeugen(
     firma: firma as Profile,
     logoDataUrl,
   });
-  const blob = await pdf(dokument).toBlob();
-  const puffer = Buffer.from(await blob.arrayBuffer());
+  const stream = await renderToStream(dokument);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const puffer = Buffer.concat(chunks);
 
   return {
     puffer,
