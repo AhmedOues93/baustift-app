@@ -23,6 +23,7 @@ export type AngebotStatus =
 export type EingabeArt = "sprache" | "text" | "kopie" | "aufmass";
 export type AufmassStatus = "offen" | "abgeschlossen";
 export type AuftragStatus = "geplant" | "in_arbeit" | "fertig" | "abgerechnet";
+export type AuftragDokuArt = "notiz" | "foto";
 /** Wie ein Mass gerechnet wird — bestimmt zugleich die Einheit (0012). */
 export type MessungArt = "flaeche" | "laenge" | "volumen" | "stueck";
 export type FeedbackArt = "problem" | "idee" | "lob";
@@ -272,6 +273,16 @@ export type Auftrag = {
   updated_at: string;
 };
 
+export type AuftragDokumentation = {
+  id: string;
+  auftrag_id: string;
+  user_id: string;
+  art: AuftragDokuArt;
+  text: string | null;
+  datei_pfad: string | null;
+  created_at: string;
+};
+
 export type RechnungZahlung = {
   id: string;
   rechnung_id: string;
@@ -428,6 +439,12 @@ export type Database = {
         Update: Partial<Auftrag>;
         Relationships: [];
       };
+      auftrag_dokumentation: {
+        Row: AuftragDokumentation;
+        Insert: Omit<AuftragDokumentation, "id" | "created_at"> & { id?: string };
+        Update: Partial<AuftragDokumentation>;
+        Relationships: [];
+      };
       rechnung_zahlungen: {
         Row: RechnungZahlung;
         Insert: Omit<RechnungZahlung, "id" | "created_at"> & { id?: string };
@@ -509,6 +526,7 @@ export type Database = {
       einheit: Einheit;
       aufmass_status: AufmassStatus;
       auftrag_status: AuftragStatus;
+      auftrag_doku_art: AuftragDokuArt;
       messung_art: MessungArt;
     };
     CompositeTypes: {
