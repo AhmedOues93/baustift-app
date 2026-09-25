@@ -37,6 +37,8 @@ export default async function RechnungPage({
         .eq("rechnung_id", id)
         .order("pos_nr"),
       supabase.from("kunden").select("*").order("name"),
+      // Aufsteigend: eine Zahlungsgeschichte liest man von der Anzahlung
+      // nach vorn, nicht rückwärts.
       supabase
         .from("rechnung_zahlungen")
         .select("*")

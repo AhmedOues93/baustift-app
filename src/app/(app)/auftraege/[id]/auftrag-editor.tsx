@@ -1,0 +1,21 @@
+"use client";
+import { useState,useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Meldung } from "@/components/ui/field";
+import { auftragNotizHinzufuegen, auftragSpeichern } from "../actions";
+import type { Auftrag, AuftragDokumentation, AuftragStatus, Kunde } from "@/types/database";
+export function AuftragEditor({auftrag,kunde,dokumentation}:{auftrag:Auftrag;kunde:Kunde|null;dokumentation:AuftragDokumentation[]}) {
+ const router=useRouter(); const [pending,start]=useTransition(); const [dokuText,setDokuText]=useState(""); const [status,setStatus]=useState<AuftragStatus>(auftrag.status); const [von,setVon]=useState(auftrag.termin_von?.slice(0,16)??""); const [bis,setBis]=useState(auftrag.termin_bis?.slice(0,16)??""); const [adresse,setAdresse]=useState(auftrag.adresse??""); const [notiz,setNotiz]=useState(auftrag.notiz??""); const [msg,setMsg]=useState<string|null>(null);
+ function speichern(){start(async()=>{const r=await auftragSpeichern({id:auftrag.id,status,terminVon:von?new Date(von).toISOString():null,terminBis:bis?new Date(bis).toISOString():null,adresse,notiz});setMsg(r.fehler??"Auftrag gespeichert.");router.refresh();});}
+ return <><header><p className="text-sm text-text-leise">{kunde?.name??"Kein Kunde"}</p><h1 className="font-titel text-[28px] font-bold">{auftrag.titel}</h1></header>
+ <section className="flex flex-col gap-4 rounded-karte bg-flaeche p-4 shadow-karte">
+ <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-text-leise">Status</span><select value={status} onChange={e=>setStatus(e.target.value as AuftragStatus)} className="min-h-11 rounded-feld border border-linie bg-flaeche px-3"><option value="geplant">Geplant</option><option value="in_arbeit">In Arbeit</option><option value="fertig">Fertig</option><option value="abgerechnet">Abgerechnet</option></select></label>
+ <div className="grid grid-cols-2 gap-3"><label className="flex flex-col gap-1.5"><span className="text-sm text-text-leise">Termin von</span><input type="datetime-local" value={von} onChange={e=>setVon(e.target.value)} className="min-h-11 rounded-feld border border-linie px-2"/></label><label className="flex flex-col gap-1.5"><span className="text-sm text-text-leise">bis</span><input type="datetime-local" value={bis} onChange={e=>setBis(e.target.value)} className="min-h-11 rounded-feld border border-linie px-2"/></label></div>
+ <label className="flex flex-col gap-1.5"><span className="text-sm text-text-leise">Baustellenadresse</span><input value={adresse} onChange={e=>setAdresse(e.target.value)} className="min-h-11 rounded-feld border border-linie px-3"/></label>
+ <label className="flex flex-col gap-1.5"><span className="text-sm text-text-leise">Notiz</span><textarea value={notiz} onChange={e=>setNotiz(e.target.value)} rows={4} className="rounded-feld border border-linie p-3"/></label>
+ <Button variante="primaer" disabled={pending} onClick={speichern}>{pending?"Speichert…":"Auftrag speichern"}</Button>{msg?<Meldung art={msg.includes("konnte")?"fehler":"erfolg"}>{msg}</Meldung>:null}
+ </section>
+ <section className="rounded-karte bg-flaeche p-4 shadow-karte"><h2 className="font-titel text-lg font-bold">Baustellendokumentation</h2><p className="mt-1 text-sm text-text-leise">Notizen bleiben chronologisch am Auftrag erhalten.</p><div className="mt-3 flex gap-2"><input value={dokuText} onChange={e=>setDokuText(e.target.value)} placeholder="z. B. Untergrund geprüft, Kunde informiert" className="min-h-11 flex-1 rounded-feld border border-linie px-3"/><Button variante="sekundaer" disabled={pending||!dokuText.trim()} onClick={()=>start(async()=>{const r=await auftragNotizHinzufuegen(auftrag.id,dokuText);if(!r.fehler){setDokuText("");router.refresh();}else setMsg(r.fehler);})}>Hinzufügen</Button></div>{dokumentation.length?<div className="mt-4 border-t border-linie">{dokumentation.map(d=><article key={d.id} className="border-b border-linie py-3 last:border-0"><p className="text-sm">{d.text}</p><p className="zahl mt-1 text-xs text-text-leise">{new Date(d.created_at).toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"})}</p></article>)}</div>:<p className="mt-4 text-sm text-text-leise">Noch keine Dokumentation.</p>}</section>
+ </>;
+}
