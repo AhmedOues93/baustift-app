@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { KundenImportFormular } from "./import-formular";
@@ -86,9 +87,10 @@ export function KundenAnsicht({ kunden }: { kunden: Kunde[] }) {
         <ul className="flex flex-col gap-2 pb-20 lg:pb-0">
           {gefiltert.map((k) => (
             <li key={k.id} className="overflow-hidden rounded-karte bg-flaeche shadow-karte">
-              <button
-                type="button"
-                onClick={() => setSheet(k)}
+              {/* Führt in die Akte, nicht ins Formular: die häufigere Frage
+                  ist "was läuft bei dem?", nicht "wie heisst die Strasse?". */}
+              <Link
+                href={`/kunden/${k.id}`}
                 className="flex min-h-14 w-full items-center gap-3 p-4 text-left transition-colors active:bg-papier"
               >
                 <span className="flex-1">
@@ -99,7 +101,7 @@ export function KundenAnsicht({ kunden }: { kunden: Kunde[] }) {
                       .join(", ") || "Keine Anschrift hinterlegt"}
                   </span>
                 </span>
-              </button>
+              </Link>
             </li>
           ))}
         </ul>

@@ -10,7 +10,15 @@ import type { Kunde } from "@/types/database";
 
 export const metadata = { title: "Neues Angebot · Baustift" };
 
-export default async function NeuesAngebotPage() {
+export default async function NeuesAngebotPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ kunde?: string }>;
+}) {
+  // Aus der Kundenakte heraus ist der Kunde schon klar — ihn dann noch einmal
+  // aus einer Liste zu suchen, ist genau der Klick, den man auf der Baustelle
+  // nicht macht.
+  const { kunde: vorgabe } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -85,7 +93,7 @@ export default async function NeuesAngebotPage() {
             </div>
           ) : null}
 
-          <Aufnahme kunden={(kunden ?? []) as Kunde[]} />
+          <Aufnahme kunden={(kunden ?? []) as Kunde[]} kundeVorgabe={vorgabe} />
         </>
       )}
     </div>

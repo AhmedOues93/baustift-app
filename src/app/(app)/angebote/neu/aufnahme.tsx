@@ -27,7 +27,14 @@ const MAX_SEKUNDEN = 10 * 60;
  *  3. Der Pegel wird sichtbar angezeigt. Eine stumme Aufnahme merkt man sonst
  *     erst, wenn nach 40 Sekunden "da war nichts zu hören" kommt.
  */
-export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
+export function Aufnahme({
+  kunden,
+  kundeVorgabe,
+}: {
+  kunden: Kunde[];
+  /** Kunde, der schon feststeht — etwa aus der Kundenakte heraus. */
+  kundeVorgabe?: string;
+}) {
   const router = useRouter();
 
   const [zustand, setZustand] = useState<Zustand>("bereit");
@@ -36,7 +43,11 @@ export function Aufnahme({ kunden }: { kunden: Kunde[] }) {
   const [fehler, setFehler] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [tippen, setTippen] = useState(false);
-  const [kundeId, setKundeId] = useState<string>("");
+  const [kundeId, setKundeId] = useState<string>(
+    // Nur übernehmen, wenn es den Kunden wirklich gibt: eine erfundene ID aus
+    // der Adresszeile würde sonst still am Angebot hängen.
+    kundeVorgabe && kunden.some((k) => k.id === kundeVorgabe) ? kundeVorgabe : "",
+  );
   const [kundenListe, setKundenListe] = useState(kunden);
   const [kundeSheet, setKundeSheet] = useState(false);
 
