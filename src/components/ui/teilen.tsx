@@ -5,22 +5,8 @@ import { useState } from "react";
 import { IconTeilen } from "@/components/ui/icons";
 
 /**
- * PDF teilen — über WhatsApp, Mail-App, AirDrop, was auch immer auf dem
- * Gerät installiert ist.
- *
- * Warum das im Handwerk wichtiger ist als der E-Mail-Versand aus der App:
- * die meisten Angebote gehen hier per WhatsApp raus. Die Kundin hat dem
- * Handwerker vorhin geschrieben, wo sie wohnt — also antwortet er im selben
- * Verlauf. Eine App, die das nicht kann, wird zwischendurch verlassen: PDF
- * herunterladen, Dateien-App suchen, WhatsApp öffnen, Anhang finden.
- *
- * Der Weg dahin ist die Web Share API. Sie ist auf Android-Chrome und
- * iOS-Safari da, also genau dort, wo dieses Produkt benutzt wird, und sie
- * öffnet das native Teilen-Blatt mit der Datei im Gepäck.
- *
- * Wo sie fehlt (Desktop-Firefox etwa), öffnen wir das PDF einfach — von dort
- * führt jeder Browser weiter. Ein Knopf, der nichts tut, wäre schlimmer als
- * einer, der etwas anderes tut.
+ * PDF teilen. Mobile Browser koennen das native Share-Sheet mit Datei oeffnen.
+ * Falls Datei-Sharing nicht verfuegbar ist, wird das PDF direkt geoeffnet.
  */
 export function TeilenKnopf({
   pfad,
@@ -29,46 +15,46 @@ export function TeilenKnopf({
   text,
   className = "",
 }: {
-  /** Route, die das PDF ausliefert. */
   pfad: string;
   dateiname: string;
-  /** Betreff im Teilen-Blatt. */
   titel: string;
-  /** Begleittext, den die Ziel-App übernimmt. */
   text: string;
   className?: string;
 }) {
   const [laedt, setLaedt] = useState(false);
 
+  async function pdfOeffnen() {
+    // Nicht window.open() nach einem await benutzen: mobile Browser blockieren
+    // solche Popups oft. Ein normaler Navigation-Sprung ist zuverlaessiger.
+    window.location.assign(pfad);
+  }
+
   async function teilen() {
-    // Kein Teilen-Blatt vorhanden: PDF öffnen und den Browser übernehmen
-    // lassen. Das ist der Desktop-Fall.
     if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-      window.open(pfad, "_blank", "noopener");
+      await pdfOeffnen();
       return;
     }
 
     setLaedt(true);
     try {
-      const antwort = await fetch(pfad);
+      const antwort = await fetch(pfad, {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
       if (!antwort.ok) throw new Error("PDF nicht erreichbar");
+
       const blob = await antwort.blob();
       const datei = new File([blob], dateiname, { type: "application/pdf" });
 
-      // Manche Geräte teilen Text, aber keine Dateien. Dann lieber das PDF
-      // öffnen, als eine Nachricht ohne Angebot zu verschicken.
-      if (!navigator.canShare?.({ files: [datei] })) {
-        window.open(pfad, "_blank", "noopener");
+      if (typeof navigator.canShare === "function" && !navigator.canShare({ files: [datei] })) {
+        await pdfOeffnen();
         return;
       }
 
       await navigator.share({ files: [datei], title: titel, text });
     } catch (ausnahme) {
-      // Wer das Teilen-Blatt wegwischt, hat keinen Fehler gemacht.
       if (ausnahme instanceof DOMException && ausnahme.name === "AbortError") return;
-      // Alles andere: PDF öffnen. Eine Fehlermeldung würde den Handwerker
-      // ratlos zurücklassen, das offene PDF bringt ihn weiter.
-      window.open(pfad, "_blank", "noopener");
+      await pdfOeffnen();
     } finally {
       setLaedt(false);
     }
