@@ -40,10 +40,19 @@ export function rechnungEn16931Xml(args: {
   firma: Profile;
 }): string {
   const { rechnung: r, positionen, kunde: k, firma: f } = args;
-  if (!f.firma_name || !f.strasse || !f.plz || !f.ort) throw new Error("Firmendaten fuer E-Rechnung unvollstaendig.");
-  if (!k.name || !k.strasse || !k.plz || !k.ort) throw new Error("Kundendaten fuer E-Rechnung unvollstaendig.");
-  if (!f.ust_id && !f.steuernummer) throw new Error("USt-IdNr. oder Steuernummer fehlt.");
-  if (!r.leistung_von) throw new Error("Leistungsdatum fehlt.");
+  const fehlt: string[] = [];
+  if (!f.firma_name) fehlt.push("Firmenname");
+  if (!f.strasse) fehlt.push("Firmenstrasse");
+  if (!f.plz) fehlt.push("Firmen-PLZ");
+  if (!f.ort) fehlt.push("Firmenort");
+  if (!f.ust_id && !f.steuernummer) fehlt.push("USt-IdNr. oder Steuernummer");
+  if (!k.name) fehlt.push("Kundenname");
+  if (!k.strasse) fehlt.push("Kundenstrasse");
+  if (!k.plz) fehlt.push("Kunden-PLZ");
+  if (!k.ort) fehlt.push("Kundenort");
+  if (!r.leistung_von) fehlt.push("Leistungsdatum");
+  if (!positionen.length) fehlt.push("Rechnungspositionen");
+  if (fehlt.length) throw new Error(`E-Rechnung unvollstaendig: ${fehlt.join(", ")}.`);
 
   const sellerTax = f.ust_id
     ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${xml(f.ust_id)}</ram:ID></ram:SpecifiedTaxRegistration>`
