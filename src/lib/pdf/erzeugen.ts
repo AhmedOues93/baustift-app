@@ -1,6 +1,6 @@
 import "server-only";
 
-import { renderToBuffer } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 
 import { AngebotPdf } from "@/lib/pdf/angebot-pdf";
 import { RechnungPdf } from "@/lib/pdf/rechnung-pdf";
@@ -74,15 +74,15 @@ export async function angebotPdfErzeugen(
     console.warn("PDF-Logo konnte nicht geladen werden.", error);
   }
 
-  const puffer = await renderToBuffer(
-    AngebotPdf({
-      angebot: angebot as Angebot,
-      positionen: (positionen ?? []) as Position[],
-      kunde: (kundeErgebnis.data ?? null) as Kunde | null,
-      firma: firma as Profile,
-      logoDataUrl,
-    }),
-  );
+  const dokument = AngebotPdf({
+    angebot: angebot as Angebot,
+    positionen: (positionen ?? []) as Position[],
+    kunde: (kundeErgebnis.data ?? null) as Kunde | null,
+    firma: firma as Profile,
+    logoDataUrl,
+  });
+  const blob = await pdf(dokument).toBlob();
+  const puffer = Buffer.from(await blob.arrayBuffer());
 
   return {
     puffer,
@@ -142,15 +142,15 @@ export async function rechnungPdfErzeugen(
     console.warn("PDF-Logo konnte nicht geladen werden.", error);
   }
 
-  const puffer = await renderToBuffer(
-    RechnungPdf({
-      rechnung: rechnung as Rechnung,
-      positionen: (positionen ?? []) as RechnungPosition[],
-      kunde: (kundeErgebnis.data ?? null) as Kunde | null,
-      firma: firma as Profile,
-      logoDataUrl,
-    }),
-  );
+  const dokument = RechnungPdf({
+    rechnung: rechnung as Rechnung,
+    positionen: (positionen ?? []) as RechnungPosition[],
+    kunde: (kundeErgebnis.data ?? null) as Kunde | null,
+    firma: firma as Profile,
+    logoDataUrl,
+  });
+  const blob = await pdf(dokument).toBlob();
+  const puffer = Buffer.from(await blob.arrayBuffer());
 
   return {
     puffer,
