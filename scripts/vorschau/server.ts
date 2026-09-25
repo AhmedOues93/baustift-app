@@ -90,7 +90,7 @@ const RECHNUNG_POSITIONEN = [
 
 const AUFMASS = [{
   id:"auf1", user_id:"u1", kunde_id:"k1", titel:"Bad Lindenstr. 12",
-  status:"abgeschlossen", notiz:null, angebot_id:null, abgeschlossen_am:null,
+  status:"offen", notiz:null, angebot_id:null, abgeschlossen_am:null,
   created_at:tage(0), updated_at:tage(0),
 },{
   id:"auf2", user_id:"u1", kunde_id:"k2", titel:"Treppenhaus streichen",
@@ -109,10 +109,29 @@ const AUFMASS_POSITIONEN = [
   laenge, breite, hoehe, anzahl, abzug, wert, einheit, gesprochen,
   zu_pruefen:pruefen, created_at:"", updated_at:"",
 }));
+/**
+ * Was in der echten Datenbank generierte Spalten sind, muss hier von Hand
+ * nachgerechnet werden — sonst behauptet der Rauchtest Werte, die Postgres
+ * anders ermittelt. Die Regel steht in 0012_aufmass.sql.
+ */
+function berechnet(tabelle:string, w:any){
+  if (tabelle !== "aufmass_positionen") return {};
+  const a = w.anzahl ?? 1;
+  const einheit = { flaeche:"m2", volumen:"m3", laenge:"m", stueck:"stk" }[w.art as string] ?? "m2";
+  const runde = (n:number)=>Math.round(n*1000)/1000;
+  let wert: number|null = null;
+  if (w.art === "flaeche") wert = w.laenge!=null && w.breite!=null ? runde(a*w.laenge*w.breite) : null;
+  else if (w.art === "volumen") wert = w.laenge!=null && w.breite!=null && w.hoehe!=null ? runde(a*w.laenge*w.breite*w.hoehe) : null;
+  else if (w.art === "laenge") wert = w.laenge!=null ? runde(a*w.laenge) : null;
+  else wert = a;
+  return { wert, einheit };
+}
+
 const TABELLEN: Record<string, any[]> = { profiles:[PROFIL], kunden:KUNDEN, preisliste:PREISE, angebote:ANGEBOTE, positionen:POSITIONEN, rechnungen:RECHNUNGEN, rechnung_positionen:RECHNUNG_POSITIONEN, ki_nutzung:[], feedback:[], aufmass:AUFMASS, aufmass_positionen:AUFMASS_POSITIONEN };
 class Abfrage {
   private zeilen:any[]; private kopfOnly=false; private zaehlen=false;
-  constructor(t:string){ this.zeilen=[...(TABELLEN[t]??[])]; }
+  private tabelle:string;
+  constructor(t:string){ this.tabelle=t; this.zeilen=[...(TABELLEN[t]??[])]; }
   select(_s?:string,o?:any){ if(o?.head)this.kopfOnly=true; if(o?.count)this.zaehlen=true; return this; }
   eq(s:string,w:any){ this.zeilen=this.zeilen.filter(z=>z[s]===w); return this; }
   not(){ return this; }
@@ -124,7 +143,36 @@ class Abfrage {
   order(s:string,o?:any){ const auf=o?.ascending!==false; this.zeilen.sort((a,b)=>{const x=a[s]??"",y=b[s]??"";return (x<y?-1:x>y?1:0)*(auf?1:-1);}); return this; }
   maybeSingle(){ return Promise.resolve({data:this.zeilen[0]??null,error:null}); }
   single(){ return Promise.resolve({data:this.zeilen[0]??null,error:null}); }
-  insert(){ return this; } update(){ return this; } delete(){ return this; }
+  /**
+   * Schreiben muss wirklich schreiben.
+   *
+   * Vorher gab insert() nur sich selbst zurück — ein anschliessendes
+   * .select().single() lieferte dann die ERSTE vorhandene Zeile statt der
+   * eben angelegten. Ein Rauchtest über eine schreibende Route hätte damit
+   * bestanden, ohne irgendetwas zu beweisen. Genau die Sorte Test, die
+   * schlimmer ist als keiner.
+   */
+  insert(werte:any){
+    const neue = (Array.isArray(werte)?werte:[werte]).map((w:any,i:number)=>({
+      id: w.id ?? `neu-${Date.now()}-${i}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...w,
+      ...berechnet(this.tabelle, w),
+    }));
+    TABELLEN[this.tabelle] = [...(TABELLEN[this.tabelle] ?? []), ...neue];
+    this.zeilen = neue;
+    return this;
+  }
+  update(werte:any){
+    this.zeilen = this.zeilen.map((z:any)=>Object.assign(z, werte, berechnet(this.tabelle, {...z, ...werte})));
+    return this;
+  }
+  delete(){
+    const weg = new Set(this.zeilen.map((z:any)=>z.id));
+    TABELLEN[this.tabelle] = (TABELLEN[this.tabelle] ?? []).filter((z:any)=>!weg.has(z.id));
+    return this;
+  }
   then(auf:any){ return Promise.resolve({ data:this.kopfOnly?null:this.zeilen, count:this.zaehlen?this.zeilen.length:null, error:null }).then(auf); }
 }
 export function createClient(){ return {

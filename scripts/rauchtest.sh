@@ -121,6 +121,76 @@ pruefe /api/konto/export 200 "json"
 # Unbekannter Export darf nicht 500 werfen.
 pruefe /api/export/unsinn 404 ""
 
+echo "→ Schreibende Routen"
+# Die Aufmass-Messung lässt sich ohne fremde Dienste prüfen: mit getipptem
+# Text statt Aufnahme läuft sie durch den Parser und schreibt die Zeile. Der
+# Weg durchs gebaute Next ist derselbe wie beim Diktat — nur ohne Whisper.
+antwort=$(curl -s -X POST --noproxy localhost \
+  -F "text=Bad Wand 3: 4 Meter mal 2,50 Meter" \
+  -w $'\n%{http_code}' \
+  "http://localhost:$PORT/api/aufmass/auf1/messung")
+code=$(echo "$antwort" | tail -1)
+rumpf=$(echo "$antwort" | sed '$d')
+
+if [ "$code" != "200" ]; then
+  echo "  ✗ POST /api/aufmass/auf1/messung -> $code"
+  echo "$rumpf" | head -3 | sed 's/^/      /'
+  fehler=$((fehler + 1))
+else
+  # Nicht nur der Statuscode: 4 × 2,50 muss als 10 m² herauskommen. Ein
+  # Statuscode allein bewiese nur, dass die Route antwortet.
+  if echo "$rumpf" | node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const m = JSON.parse(s).messung;
+      const falsch = [];
+      if (m.art !== "flaeche") falsch.push("art=" + m.art);
+      if (Number(m.laenge) !== 4) falsch.push("laenge=" + m.laenge);
+      if (Number(m.breite) !== 2.5) falsch.push("breite=" + m.breite);
+      if (Number(m.wert) !== 10) falsch.push("wert=" + m.wert);
+      if (m.einheit !== "m2") falsch.push("einheit=" + m.einheit);
+      if (m.bezeichnung !== "Wand 3") falsch.push("bezeichnung=" + m.bezeichnung);
+      if (m.raum !== "Bad") falsch.push("raum=" + m.raum);
+      if (falsch.length) { console.error(falsch.join(", ")); process.exit(1); }
+    });
+  ' 2>"$SICHERUNG/messung.err"; then
+    echo "  ✓ POST /api/aufmass/auf1/messung -> Bad / Wand 3 / 4 × 2,50 = 10 m²"
+  else
+    echo "  ✗ POST /api/aufmass/auf1/messung: $(cat "$SICHERUNG/messung.err")"
+    fehler=$((fehler + 1))
+  fi
+fi
+
+# Zu kurze Eingabe muss abgelehnt werden, nicht stillschweigend eine leere
+# Zeile anlegen.
+antwort=$(curl -s -o /dev/null -w "%{http_code}" -X POST --noproxy localhost \
+  -F "text=" "http://localhost:$PORT/api/aufmass/auf1/messung")
+if [ "$antwort" = "400" ]; then
+  echo "  ✓ POST /api/aufmass/auf1/messung (leer) -> 400"
+else
+  echo "  ✗ POST /api/aufmass/auf1/messung (leer) -> $antwort (erwartet 400)"
+  fehler=$((fehler + 1))
+fi
+
+# Ein abgeschlossenes Aufmass nimmt nichts mehr an.
+antwort=$(curl -s -o /dev/null -w "%{http_code}" -X POST --noproxy localhost \
+  -F "text=Wand 9: 2 mal 3 Meter" "http://localhost:$PORT/api/aufmass/auf2/messung")
+if [ "$antwort" = "409" ]; then
+  echo "  ✓ POST /api/aufmass/auf2/messung (abgeschlossen) -> 409"
+else
+  echo "  ✗ POST /api/aufmass/auf2/messung (abgeschlossen) -> $antwort (erwartet 409)"
+  fehler=$((fehler + 1))
+fi
+
+# Ein fremdes Aufmass darf es nicht geben.
+antwort=$(curl -s -o /dev/null -w "%{http_code}" -X POST --noproxy localhost \
+  -F "text=Wand 1: 2 mal 3 Meter" "http://localhost:$PORT/api/aufmass/gibtsnicht/messung")
+if [ "$antwort" = "404" ]; then
+  echo "  ✓ POST /api/aufmass/gibtsnicht/messung -> 404"
+else
+  echo "  ✗ POST /api/aufmass/gibtsnicht/messung -> $antwort (erwartet 404)"
+  fehler=$((fehler + 1))
+fi
+
 echo "→ Inhalt der PDFs"
 for ziel in "angebote/a1:AN-2026-0041" "rechnungen/r3:RE-2026-0016"; do
   pfad="${ziel%%:*}"
