@@ -87,6 +87,8 @@ const angebot: Angebot = {
   pdf_path: null,
   gesendet_am: null,
   entschieden_am: null,
+  nachgefasst_am: null,
+  nachfassungen: 0,
   eingabe_art: null,
   aufnahme_sekunden: null,
   created_at: "",

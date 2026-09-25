@@ -148,6 +148,10 @@ export type Angebot = {
   pdf_path: string | null;
   gesendet_am: string | null;
   entschieden_am: string | null;
+  /** Letzte Nachfrage beim Kunden (0010_nachfassen.sql). */
+  nachgefasst_am: string | null;
+  /** Wie oft schon nachgehakt wurde. 0 = noch gar nicht. */
+  nachfassungen: number;
   /** Nur im Piloten erhoben: Sprache oder Tastatur. */
   eingabe_art: EingabeArt | null;
   aufnahme_sekunden: number | null;
@@ -291,7 +295,12 @@ export type Database = {
       };
       angebote: {
         Row: Angebot;
-        Insert: Omit<Angebot, "id" | "created_at" | "updated_at"> & { id?: string };
+        // Die Nachfass-Felder haben Vorgaben in der Datenbank: beim Anlegen
+        // wurde noch nie nachgehakt.
+        Insert: Omit<
+          Angebot,
+          "id" | "created_at" | "updated_at" | "nachgefasst_am" | "nachfassungen"
+        > & { id?: string; nachgefasst_am?: string | null; nachfassungen?: number };
         Update: Partial<Angebot>;
         /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
         Relationships: [];
