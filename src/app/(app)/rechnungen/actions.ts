@@ -263,6 +263,65 @@ export async function rechnungStellen(
   return {};
 }
 
+export async function rechnungTeilzahlungErfassen(args: {
+  rechnungId: string;
+  betrag: number;
+  bezahltAm?: string;
+  notiz?: string | null;
+}): Promise<{ fehler?: string; vollBezahlt?: boolean }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+
+  const betrag = Math.round(Number(args.betrag) * 100) / 100;
+  if (!Number.isFinite(betrag) || betrag <= 0) {
+    return { fehler: "Bitte einen gueltigen Zahlungsbetrag eingeben." };
+  }
+
+  const { data: rechnung } = await supabase
+    .from("rechnungen")
+    .select("id, brutto, status, festgeschrieben_am")
+    .eq("id", args.rechnungId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!rechnung || !rechnung.festgeschrieben_am) {
+    return { fehler: "Nur gestellte Rechnungen koennen Zahlungen erhalten." };
+  }
+  if (rechnung.status === "storniert") return { fehler: "Die Rechnung ist storniert." };
+
+  const { data: stand } = await supabase.rpc("rechnung_zahlungsstand", {
+    p_rechnung_id: args.rechnungId,
+  });
+  const offen = Number(stand?.[0]?.offen ?? rechnung.brutto);
+  if (betrag > offen + 0.005) {
+    return { fehler: `Der Betrag ist hoeher als der offene Restbetrag (${formatEuro(offen)}).` };
+  }
+
+  const { error } = await supabase.from("rechnung_zahlungen").insert({
+    rechnung_id: args.rechnungId,
+    user_id: user.id,
+    betrag,
+    bezahlt_am: args.bezahltAm || new Date().toISOString().slice(0, 10),
+    notiz: args.notiz?.trim() || null,
+  });
+  if (error) return { fehler: "Zahlung konnte nicht gespeichert werden." };
+
+  const rest = Math.max(0, Math.round((offen - betrag) * 100) / 100);
+  if (rest === 0) {
+    const { error: statusFehler } = await supabase
+      .from("rechnungen")
+      .update({ status: "bezahlt", bezahlt_am: new Date().toISOString() })
+      .eq("id", args.rechnungId)
+      .eq("user_id", user.id);
+    if (statusFehler) return { fehler: "Zahlung gespeichert, Status konnte aber nicht aktualisiert werden." };
+  }
+
+  revalidatePath(`/rechnungen/${args.rechnungId}`);
+  revalidatePath("/rechnungen");
+  return { vollBezahlt: rest === 0 };
+}
+
 export async function rechnungBezahlt(
   rechnungId: string,
 ): Promise<{ fehler?: string }> {

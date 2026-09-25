@@ -255,6 +255,16 @@ export type AufmassPosition = {
   updated_at: string;
 };
 
+export type RechnungZahlung = {
+  id: string;
+  rechnung_id: string;
+  user_id: string;
+  betrag: number;
+  bezahlt_am: string;
+  notiz: string | null;
+  created_at: string;
+};
+
 export type RechnungPosition = {
   id: string;
   rechnung_id: string;
@@ -395,6 +405,12 @@ export type Database = {
         Update: Partial<Rechnung>;
         Relationships: [];
       };
+      rechnung_zahlungen: {
+        Row: RechnungZahlung;
+        Insert: Omit<RechnungZahlung, "id" | "created_at"> & { id?: string };
+        Update: Partial<RechnungZahlung>;
+        Relationships: [];
+      };
       rechnung_positionen: {
         Row: RechnungPosition;
         Insert: Omit<
@@ -418,6 +434,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      rechnung_zahlungsstand: {
+        Args: { p_rechnung_id: string };
+        Returns: { bezahlt: number; offen: number }[];
+      };
       next_angebot_nummer: {
         Args: { p_user_id: string };
         Returns: string;
