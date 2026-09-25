@@ -40,7 +40,8 @@ export async function GET(
     return new NextResponse(xml, {
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Content-Disposition": `attachment; filename="E-Rechnung-${rechnung.nummer}.xml"`,
+        "Content-Disposition": `attachment; filename="E-Rechnung-${rechnung.nummer.replace(/[^A-Za-z0-9._-]/g, "-")}.xml"`,
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, no-store",
       },
     });
