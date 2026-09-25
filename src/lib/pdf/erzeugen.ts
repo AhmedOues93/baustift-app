@@ -67,7 +67,12 @@ export async function angebotPdfErzeugen(
 
   if (!firma) return { fehler: "Firmendaten fehlen." };
 
-  const logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  let logoDataUrl: string | null = null;
+  try {
+    logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  } catch (error) {
+    console.warn("PDF-Logo konnte nicht geladen werden.", error);
+  }
 
   const puffer = await renderToBuffer(
     AngebotPdf({
@@ -130,7 +135,12 @@ export async function rechnungPdfErzeugen(
 
   if (!firma) return { fehler: "Firmendaten fehlen." };
 
-  const logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  let logoDataUrl: string | null = null;
+  try {
+    logoDataUrl = await logoLaden(supabase, firma.logo_url);
+  } catch (error) {
+    console.warn("PDF-Logo konnte nicht geladen werden.", error);
+  }
 
   const puffer = await renderToBuffer(
     RechnungPdf({
