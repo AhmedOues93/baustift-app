@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { kontoLoeschen } from "./konto-actions";
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,7 @@ function LoeschenSheet({
   firmaName: string;
   onSchliessen: () => void;
 }) {
-  const [state, action] = useFormState(kontoLoeschen, {});
+  const [state, action] = useActionState(kontoLoeschen, {});
 
   return (
     <Sheet titel="Konto löschen" onSchliessen={onSchliessen}>

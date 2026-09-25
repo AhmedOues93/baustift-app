@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { preisAendern, preisAnlegen, preisLoeschen, type PreisState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ export function PreisFormular({
   onSchliessen: () => void;
 }) {
   const bearbeiten = Boolean(eintrag);
-  const [state, action] = useFormState<PreisState, FormData>(
+  const [state, action] = useActionState<PreisState, FormData>(
     bearbeiten ? preisAendern : preisAnlegen,
     {},
   );

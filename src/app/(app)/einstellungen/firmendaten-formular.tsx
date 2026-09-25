@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { firmendatenSpeichern, logoEntfernen, type FirmaState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ export function FirmendatenFormular({
   /** Signierte URL fürs aktuelle Logo, falls vorhanden. */
   logoUrl: string | null;
 }) {
-  const [state, action] = useFormState<FirmaState, FormData>(
+  const [state, action] = useActionState<FirmaState, FormData>(
     firmendatenSpeichern,
     {},
   );

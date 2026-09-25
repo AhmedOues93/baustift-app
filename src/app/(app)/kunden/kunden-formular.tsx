@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { kundeAendern, kundeAnlegen, kundeLoeschen, type KundeState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export function KundenFormular({
   onAngelegt?: (kunde: Kunde) => void;
 }) {
   const bearbeiten = Boolean(kunde);
-  const [state, action] = useFormState<KundeState, FormData>(
+  const [state, action] = useActionState<KundeState, FormData>(
     bearbeiten ? kundeAendern : kundeAnlegen,
     {},
   );

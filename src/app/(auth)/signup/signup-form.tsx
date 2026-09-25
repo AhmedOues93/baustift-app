@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { GoogleButton } from "../google-button";
 import { Trenner } from "../login/login-form";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Meldung } from "@/components/ui/field";
 
 export function SignupForm() {
-  const [state, action] = useFormState<AuthState, FormData>(registrieren, {});
+  const [state, action] = useActionState<AuthState, FormData>(registrieren, {});
 
   // Nach erfolgreicher Registrierung mit E-Mail-Bestätigung gibt es keine
   // Session — dann nur den Hinweis zeigen, nicht das Formular.

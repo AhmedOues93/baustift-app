@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { GoogleButton } from "../google-button";
 import { anmelden, type AuthState } from "@/app/auth/actions";
@@ -9,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Meldung } from "@/components/ui/field";
 
 export function LoginForm({ weiter }: { weiter: string }) {
-  // useFormState (React 18 / Next 14) hält das Ergebnis der Server Action.
-  const [state, action] = useFormState<AuthState, FormData>(anmelden, {});
+  // useActionState hält das Ergebnis der Server Action zwischen den Aufrufen.
+  const [state, action] = useActionState<AuthState, FormData>(anmelden, {});
 
   return (
     <div className="flex flex-col gap-6">

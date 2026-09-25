@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { preislisteImportieren, type PreisState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { Sheet } from "@/components/ui/sheet";
  * exportieren aus Excel und sollen nicht raten müssen, was die App erwartet.
  */
 export function ImportFormular({ onSchliessen }: { onSchliessen: () => void }) {
-  const [state, action] = useFormState<PreisState, FormData>(
+  const [state, action] = useActionState<PreisState, FormData>(
     preislisteImportieren,
     {},
   );

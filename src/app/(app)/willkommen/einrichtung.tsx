@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import {
   einrichtungAbschliessen,
@@ -20,7 +21,7 @@ import type { Profile } from "@/types/database";
  * unter Konto.
  */
 export function Einrichtung({ profil }: { profil: Profile }) {
-  const [state, action] = useFormState<WillkommenState, FormData>(
+  const [state, action] = useActionState<WillkommenState, FormData>(
     einrichtungAbschliessen,
     {},
   );

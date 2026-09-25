@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { kundenImportieren, type KundeState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Sheet } from "@/components/ui/sheet";
 
 /** CSV-Import für Kunden — Aufbau wie bei der Preisliste. */
 export function KundenImportFormular({ onSchliessen }: { onSchliessen: () => void }) {
-  const [state, action] = useFormState<KundeState, FormData>(kundenImportieren, {});
+  const [state, action] = useActionState<KundeState, FormData>(kundenImportieren, {});
 
   return (
     <Sheet titel="Kunden importieren" onSchliessen={onSchliessen}>
