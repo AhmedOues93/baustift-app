@@ -46,3 +46,18 @@ export async function auftragSpeichern(args: { id: string; status: AuftragStatus
   revalidatePath("/auftraege"); revalidatePath(`/auftraege/${args.id}`);
   return {};
 }
+
+export async function auftragNotizHinzufuegen(auftragId: string, text: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+  const sauber = text.trim();
+  if (!sauber) return { fehler: "Notiz darf nicht leer sein." };
+  if (sauber.length > 5000) return { fehler: "Notiz ist zu lang." };
+  const { data: auftrag } = await supabase.from("auftraege").select("id").eq("id", auftragId).eq("user_id", user.id).maybeSingle();
+  if (!auftrag) return { fehler: "Auftrag nicht gefunden." };
+  const { error } = await supabase.from("auftrag_dokumentation").insert({ auftrag_id: auftragId, user_id: user.id, art: "notiz", text: sauber, datei_pfad: null });
+  if (error) return { fehler: "Notiz konnte nicht gespeichert werden." };
+  revalidatePath(`/auftraege/${auftragId}`);
+  return {};
+}
