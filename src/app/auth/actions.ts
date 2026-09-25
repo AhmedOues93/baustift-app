@@ -156,3 +156,49 @@ export async function abmelden() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+/**
+ * Passwort im laufenden Betrieb ändern.
+ *
+ * Unterscheidet sich von `passwortAktualisieren` in einem Punkt, und der ist
+ * der wichtige: hier wird das ALTE Passwort verlangt. Sonst könnte jeder, der
+ * ein offenes Telefon in die Hand bekommt — auf einer Baustelle keine
+ * Seltenheit —, in zehn Sekunden das Konto übernehmen.
+ *
+ * Geprüft wird es, indem wir uns damit anmelden. Supabase hat dafür keinen
+ * eigenen Aufruf; ein fehlgeschlagener Anmeldeversuch ist die ehrlichste
+ * Prüfung und ändert an der laufenden Sitzung nichts.
+ */
+export async function passwortAendern(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const alt = String(formData.get("passwort_alt") ?? "");
+  const neu = String(formData.get("passwort") ?? "");
+  const bestaetigung = String(formData.get("passwort_bestaetigen") ?? "");
+
+  if (neu.length < 8)
+    return { fehler: "Das neue Passwort muss mindestens 8 Zeichen haben." };
+  if (neu !== bestaetigung)
+    return { fehler: "Die beiden Passwörter stimmen nicht überein." };
+  if (neu === alt)
+    return { fehler: "Das neue Passwort ist dasselbe wie das alte." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { fehler: "Bitte neu anmelden." };
+
+  const { error: pruefung } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: alt,
+  });
+  if (pruefung) return { fehler: "Das bisherige Passwort stimmt nicht." };
+
+  const { error } = await supabase.auth.updateUser({ password: neu });
+  if (error) return { fehler: uebersetzeFehler(error.message) };
+
+  revalidatePath("/einstellungen");
+  return { hinweis: "Passwort geändert." };
+}
