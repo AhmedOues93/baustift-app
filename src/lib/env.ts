@@ -58,18 +58,25 @@ export function serverEnv() {
     throw new Error("serverEnv() darf niemals im Browser aufgerufen werden.");
   }
 
+  // Jede Integration prüft nur ihre eigenen Schlüssel beim Zugriff.
   return {
-    anthropicApiKey: required("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY),
-    openaiApiKey: required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
-    supabaseServiceRoleKey: required(
-      "SUPABASE_SERVICE_ROLE_KEY",
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-    ),
-    stripeSecretKey: required("STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY),
-    stripeWebhookSecret: required(
-      "STRIPE_WEBHOOK_SECRET",
-      process.env.STRIPE_WEBHOOK_SECRET,
-    ),
-    stripePriceId: required("STRIPE_PRICE_ID", process.env.STRIPE_PRICE_ID),
+    get anthropicApiKey() {
+      return required("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY);
+    },
+    get openaiApiKey() {
+      return required("OPENAI_API_KEY", process.env.OPENAI_API_KEY);
+    },
+    get supabaseServiceRoleKey() {
+      return required("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+    },
+    get stripeSecretKey() {
+      return required("STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY);
+    },
+    get stripeWebhookSecret() {
+      return required("STRIPE_WEBHOOK_SECRET", process.env.STRIPE_WEBHOOK_SECRET);
+    },
+    get stripePriceId() {
+      return required("STRIPE_PRICE_ID", process.env.STRIPE_PRICE_ID);
+    },
   };
 }

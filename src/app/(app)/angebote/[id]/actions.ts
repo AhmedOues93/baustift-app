@@ -69,6 +69,14 @@ export async function angebotSpeichern(args: {
 
   if (!angebot) return { fehler: "Angebot nicht gefunden." };
 
+  // Vor jeder Mutation prüfen, damit fehlerhafte Eingaben nichts überschreiben.
+  for (const [i, p] of args.positionen.entries()) {
+    if (!Number.isFinite(p.menge) || p.menge <= 0 ||
+        !Number.isFinite(p.einzelpreis) || p.einzelpreis < 0) {
+      return { fehler: `Position ${i + 1}: Bitte eine positive Menge und einen gültigen Preis angeben.` };
+    }
+  }
+
   const { error: kopfFehler } = await supabase
     .from("angebote")
     .update({
@@ -103,9 +111,9 @@ export async function angebotSpeichern(args: {
       pos_nr: i + 1,
       bezeichnung: p.bezeichnung.trim() || "Position",
       beschreibung: p.beschreibung?.trim() || null,
-      menge: Number.isFinite(p.menge) ? p.menge : 1,
+      menge: p.menge,
       einheit: p.einheit,
-      einzelpreis: Number.isFinite(p.einzelpreis) ? p.einzelpreis : 0,
+      einzelpreis: p.einzelpreis,
       preisliste_id: p.preisliste_id,
       zu_pruefen: p.zu_pruefen,
       ki_konfidenz: null,

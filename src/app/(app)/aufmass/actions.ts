@@ -406,6 +406,7 @@ export async function angebotAusAufmass(
         preisliste_id: gewaehlt?.id ?? null,
       },
       katalog,
+      { manuellBestaetigt: Boolean(gewaehlt) && !g.zuPruefen },
     );
 
     return {

@@ -53,6 +53,7 @@ function position(teil: Partial<KiPosition>): KiPosition {
   return {
     bezeichnung: "",
     menge: 1,
+    konfidenz: 0.95,
     einheit: "m2",
     preisliste_id: null,
     ...teil,
@@ -151,5 +152,32 @@ describe("matchePosition", () => {
       katalog,
     );
     expect(ergebnis.menge).toBe(8);
+  });
+});
+
+
+describe("Sicherheitsprüfung des Preis-Matchings", () => {
+  it.each([null, 0, -1, NaN, Infinity])("rät keine ungültige Menge (%s)", (menge) => {
+    expect(() => matchePosition(position({ bezeichnung: "Fliesen", menge }), katalog))
+      .toThrow("gültige Menge");
+  });
+  it.each([undefined, null, 0.4, -1, 2, NaN])("verlangt Prüfung bei unsicherer Konfidenz (%s)", (konfidenz) => {
+    for (const preisliste_id of [null, "k1"]) {
+      expect(matchePosition(position({ bezeichnung: "Fliesen verlegen 30x60", preisliste_id, konfidenz }), katalog).zu_pruefen).toBe(true);
+    }
+  });
+  it("verwirft auch ausdrücklich vorgeschlagene inaktive Einträge", () => {
+    const result = matchePosition(position({ bezeichnung: "Fliesen", preisliste_id: "k1" }),
+      [{ ...katalog[0], aktiv: false }]);
+    expect(result.preisliste_id).toBeNull();
+    expect(result.zu_pruefen).toBe(true);
+  });
+  it("übernimmt weder per ID noch per Text Preise mit falscher Einheit", () => {
+    for (const preisliste_id of [null, "k1"]) {
+      const result = matchePosition(position({ bezeichnung: "Fliesen verlegen 30x60", einheit: "h", preisliste_id }), [katalog[0]]);
+      expect(result.preisliste_id).toBeNull();
+      expect(result.einzelpreis).toBe(0);
+      expect(result.zu_pruefen).toBe(true);
+    }
   });
 });
