@@ -63,3 +63,21 @@ jobs:
           # der Variablen passiert absichtlich erst zur Laufzeit.
           NEXT_PUBLIC_SUPABASE_URL: https://beispiel.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: beispiel
+          # Muss gesetzt sein: ohne sie bricht der Build inzwischen ab, damit
+          # in Produktion keine Bestätigungslinks auf localhost zeigen.
+          NEXT_PUBLIC_SITE_URL: https://beispiel.baustift.de
+
+  # Eigener Job, weil er nochmal baut — dafür prüft er als Einziger die
+  # gebaute Anwendung. Der Fehler, der die PDF-Ausgabe wochenlang lahmgelegt
+  # hat, war in Vitest nicht sichtbar und hier sofort.
+  rauchtest:
+    name: Gebaute Anwendung antwortet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:rauch
