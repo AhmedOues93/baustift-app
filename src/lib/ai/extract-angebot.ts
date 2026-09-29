@@ -91,7 +91,7 @@ const AngebotSchema = z.object({
           .string()
           .nullable()
           .describe("Optionaler Langtext/Detail, sonst null"),
-        menge: z.number().describe("Menge; wenn unklar, 1"),
+        menge: z.number().positive().nullable().describe("Positive Menge; wenn unklar oder nicht genannt, null"),
         einheit: z.enum(EINHEITEN),
         katalog_ref: z
           .string()
@@ -101,6 +101,8 @@ const AngebotSchema = z.object({
           ),
         konfidenz: z
           .number()
+          .min(0)
+          .max(1)
           .describe("Wie sicher ist die Zuordnung? 0.0 bis 1.0"),
       }),
     )
@@ -137,7 +139,7 @@ Regeln:
 - Nutze fast immer die Preisliste: wähle den Eintrag, der die Leistung am besten trifft, und gib seine Referenz in "katalog_ref" an (z. B. "K7").
 - Passt kein Eintrag, setze "katalog_ref": null und formuliere die Position trotzdem sauber. Der Handwerker ergänzt den Preis später selbst.
 - Erfinde niemals Preise. Es gibt kein Preisfeld — das ist Absicht.
-- Mengen: rechne gesprochene Zahlen in Ziffern um ("acht Quadratmeter" -> 8, "m2"). Ist keine Menge genannt, nimm 1 und setze eine niedrige Konfidenz.
+- Mengen: rechne gesprochene Zahlen in Ziffern um ("acht Quadratmeter" -> 8, "m2"). Ist keine Menge genannt oder ist sie unklar, setze menge auf null. Erfinde keine Menge.
 - Einheiten: übernimm die Einheit des gewählten Preislisten-Eintrags, wenn das Diktat nichts anderes vorgibt.
 - "konfidenz": 0.9+ wenn Leistung und Preislisten-Eintrag klar übereinstimmen, 0.5-0.8 bei Auslegung, unter 0.5 wenn du im Wesentlichen rätst.
 - Bezeichnungen sind kundentauglich und fachlich korrekt formuliert, kein Umgangston aus dem Diktat ("Dusche raus" -> "Demontage und Entsorgung Duschabtrennung").
@@ -242,7 +244,7 @@ export async function extrahiereAngebot(
   const rohPositionen: KiPosition[] = daten.positionen.map((p) => ({
     bezeichnung: p.bezeichnung,
     beschreibung: p.beschreibung,
-    menge: Number.isFinite(p.menge) && p.menge > 0 ? p.menge : 1,
+    menge: p.menge,
     einheit: p.einheit,
     preisliste_id: p.katalog_ref
       ? (katalog.refToId.get(p.katalog_ref.trim().toUpperCase()) ?? null)

@@ -130,11 +130,13 @@ export function bewerte(
   return Math.min(1, Math.max(0, score));
 }
 
+export class MengenFehler extends Error {}
+
 /** Rohposition, wie sie aus der KI-Extraktion kommt. */
 export interface KiPosition {
   bezeichnung: string;
   beschreibung?: string | null;
-  menge: number;
+  menge: number | null;
   einheit: Einheit;
   /** Von Claude vorgeschlagene Preislisten-ID (kann falsch oder null sein). */
   preisliste_id?: string | null;
@@ -160,7 +162,8 @@ export interface GematchtePosition {
  * Löst eine einzelne KI-Position gegen die Preisliste auf.
  *
  * Reihenfolge:
- *  1. Claude hat eine ID geliefert und die existiert → übernehmen (Preis aus DB).
+ *  1. Die vorgeschlagene ID ist aktiv und die Einheit passt → Preis aus DB.
+ *     Unsichere oder fehlende KI-Konfidenz bleibt zur Prüfung markiert.
  *  2. Sonst: bester Treffer über `bewerte()`.
  *     - >= AUTO_MATCH_SCHWELLE   → übernehmen
  *     - >= VORSCHLAG_SCHWELLE    → Preis vorschlagen, aber `zu_pruefen`
@@ -173,18 +176,28 @@ export interface GematchtePosition {
 export function matchePosition(
   pos: KiPosition,
   katalog: PreislisteEintrag[],
+  optionen: { manuellBestaetigt?: boolean } = {},
 ): GematchtePosition {
+  if (pos.menge === null || !Number.isFinite(pos.menge) || pos.menge <= 0) {
+    throw new MengenFehler(`Bitte eine gültige Menge für „${pos.bezeichnung}“ angeben und erneut versuchen.`);
+  }
+  const konfidenz = typeof pos.konfidenz === "number" &&
+    Number.isFinite(pos.konfidenz) && pos.konfidenz >= 0 && pos.konfidenz <= 1
+    ? pos.konfidenz : null;
+  const zuPruefen = konfidenz === null || konfidenz < AUTO_MATCH_SCHWELLE;
+  const geeignet = (e: PreislisteEintrag) => e.aktiv && e.einheit === pos.einheit &&
+    Number.isFinite(e.einzelpreis) && e.einzelpreis >= 0;
   const basis = {
     bezeichnung: pos.bezeichnung,
     beschreibung: pos.beschreibung ?? null,
     menge: pos.menge,
     einheit: pos.einheit,
-    ki_konfidenz: pos.konfidenz ?? null,
+    ki_konfidenz: konfidenz,
   };
 
   // --- 1. Von Claude vorgeschlagene ID ---------------------------------------
   if (pos.preisliste_id) {
-    const treffer = katalog.find((e) => e.id === pos.preisliste_id);
+    const treffer = katalog.find((e) => e.id === pos.preisliste_id && geeignet(e));
     if (treffer) {
       return {
         ...basis,
@@ -192,11 +205,11 @@ export function matchePosition(
         beschreibung: basis.beschreibung ?? treffer.beschreibung,
         einzelpreis: treffer.einzelpreis, // <- Preis aus der DB, nicht von der KI
         preisliste_id: treffer.id,
-        zu_pruefen: false,
+        zu_pruefen: zuPruefen && !optionen.manuellBestaetigt,
         match_grund: "katalog",
       };
     }
-    // ID unbekannt (halluziniert oder Eintrag gelöscht) → unten weitersuchen.
+    // ID unbekannt, inaktiv oder Einheit unpassend → unten weitersuchen.
   }
 
   // --- 2. Lokales unscharfes Matching ----------------------------------------
@@ -205,7 +218,7 @@ export function matchePosition(
   let bester: PreislisteEintrag | null = null;
   let besterScore = 0;
   for (const eintrag of katalog) {
-    if (!eintrag.aktiv) continue;
+    if (!geeignet(eintrag)) continue;
     const score = bewerte(suchtext, eintrag, pos.einheit);
     if (score > besterScore) {
       besterScore = score;
@@ -219,7 +232,7 @@ export function matchePosition(
       beschreibung: basis.beschreibung ?? bester.beschreibung,
       einzelpreis: bester.einzelpreis,
       preisliste_id: bester.id,
-      zu_pruefen: false,
+      zu_pruefen: zuPruefen,
       ki_konfidenz: basis.ki_konfidenz ?? round2(besterScore),
       match_grund: "aehnlichkeit",
     };

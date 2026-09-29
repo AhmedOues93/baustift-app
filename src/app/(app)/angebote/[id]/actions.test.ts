@@ -158,16 +158,15 @@ describe("angebotSpeichern", () => {
     expect(nach("p1").pos_nr).toBe(2);
   });
 
-  it("ersetzt unsinnige Werte, statt sie zu speichern", async () => {
-    await speichern([
-      { id: "p1", bezeichnung: "   ", beschreibung: null, menge: Number.NaN, einheit: "m2", einzelpreis: Number.NaN, preisliste_id: null, zu_pruefen: false },
+  it.each([
+    [NaN, 52], [0, 52], [-1, 52], [Infinity, 52], [8, NaN], [8, -1], [8, Infinity],
+  ])("weist ungültige Menge/Preis (%s/%s) vor jeder Änderung zurück", async (menge, einzelpreis) => {
+    const vorher = JSON.stringify(db.tabellen);
+    const ergebnis = await speichern([
+      { id: "p1", bezeichnung: "Geändert", beschreibung: null, menge, einheit: "m2", einzelpreis, preisliste_id: null, zu_pruefen: false },
     ]);
-
-    const zeile = db.tabellen.positionen.find((p) => p.id === "p1")!;
-    // Eine leere Position im PDF sieht nach einem Fehler des Handwerkers aus.
-    expect(zeile.bezeichnung).toBe("Position");
-    expect(zeile.menge).toBe(1);
-    expect(zeile.einzelpreis).toBe(0);
+    expect(ergebnis.fehler).toContain("Position 1");
+    expect(JSON.stringify(db.tabellen)).toBe(vorher);
   });
 
   it("verweigert fremde Angebote", async () => {

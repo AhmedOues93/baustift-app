@@ -1,3 +1,5 @@
+import { MengenFehler } from "@/lib/ai/matching";
+
 import { NextResponse } from "next/server";
 
 import { extrahiereAngebot } from "@/lib/ai/extract-angebot";
@@ -183,6 +185,9 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       (preisliste ?? []) as PreislisteEintrag[],
     );
   } catch (fehler) {
+    if (fehler instanceof MengenFehler) {
+      return NextResponse.json({ fehler: fehler.message }, { status: 422 });
+    }
     protokolliereFehler(
       { vorgang: "angebot.extraktion", userId: user.id },
       fehler,
