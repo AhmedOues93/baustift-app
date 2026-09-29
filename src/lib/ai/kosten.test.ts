@@ -57,3 +57,18 @@ describe("Kostenschätzung", () => {
     expect(formatZehntelcent(1000).replace(/\s/g, " ")).toBe("1,00 €");
   });
 });
+
+describe("unbekanntes Modell", () => {
+  it("rechnet mit 0 statt zu stolpern", () => {
+    // Zu diesem Zeitpunkt ist das Angebot schon gespeichert. Ein Absturz hier
+    // würde dem Handwerker einen Fehler zeigen, obwohl seine Arbeit da ist.
+    expect(
+      extraktionKosten({
+        modell: "irgendein-neues-modell",
+        eingabeToken: 10_000,
+        ausgabeToken: 2_000,
+        cacheToken: 0,
+      }),
+    ).toBe(0);
+  });
+});

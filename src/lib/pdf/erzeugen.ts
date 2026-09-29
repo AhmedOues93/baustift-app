@@ -48,11 +48,17 @@ export async function angebotPdfErzeugen(
   } = await supabase.auth.getUser();
   if (!user) return { fehler: "Nicht angemeldet." };
 
-  // RLS sorgt dafür, dass hier nur eigene Angebote ankommen.
+  /**
+   * RLS sorgt dafür, dass hier nur eigene Angebote ankommen. Der Filter auf
+   * user_id steht trotzdem da: eine einzelne falsche Policy-Änderung würde
+   * sonst fremde Angebote als PDF ausliefern, und die Abfrage sagt von sich
+   * aus nicht, dass sie sich auf etwas anderes verlässt.
+   */
   const { data: angebot } = await supabase
     .from("angebote")
     .select("*")
     .eq("id", angebotId)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (!angebot) return { fehler: "Angebot nicht gefunden." };
@@ -61,7 +67,7 @@ export async function angebotPdfErzeugen(
     supabase.from("positionen").select("*").eq("angebot_id", angebot.id).order("pos_nr"),
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     angebot.kunde_id
-      ? supabase.from("kunden").select("*").eq("id", angebot.kunde_id).maybeSingle()
+      ? supabase.from("kunden").select("*").eq("id", angebot.kunde_id).eq("user_id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -112,10 +118,12 @@ export async function rechnungPdfErzeugen(
   } = await supabase.auth.getUser();
   if (!user) return { fehler: "Nicht angemeldet." };
 
+  // Wie beim Angebot: RLS trennt, der Filter sagt es hin.
   const { data: rechnung } = await supabase
     .from("rechnungen")
     .select("*")
     .eq("id", rechnungId)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (!rechnung) return { fehler: "Rechnung nicht gefunden." };
@@ -128,7 +136,7 @@ export async function rechnungPdfErzeugen(
       .order("pos_nr"),
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     rechnung.kunde_id
-      ? supabase.from("kunden").select("*").eq("id", rechnung.kunde_id).maybeSingle()
+      ? supabase.from("kunden").select("*").eq("id", rechnung.kunde_id).eq("user_id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 

@@ -38,13 +38,21 @@ export function transkriptionKosten(sekunden: number): number {
   return inZehntelcent((sekunden / 60) * WHISPER_USD_PRO_MINUTE);
 }
 
+/**
+ * Das Modell kommt als Text aus der Antwort des Anbieters. Steht es nicht in
+ * der Preistabelle — weil wir gewechselt haben oder der Anbieter eine andere
+ * Kennung zurückgibt —, darf das nicht die ganze Anfrage abräumen: das Angebot
+ * ist zu diesem Zeitpunkt schon gespeichert, und der Handwerker würde einen
+ * Fehler sehen, obwohl seine Arbeit da ist. Also: Kosten 0 und weiter.
+ */
 export function extraktionKosten(args: {
-  modell: keyof typeof MODELL_PREISE;
+  modell: string;
   eingabeToken: number;
   ausgabeToken: number;
   cacheToken: number;
 }): number {
-  const p = MODELL_PREISE[args.modell];
+  const p = MODELL_PREISE[args.modell as keyof typeof MODELL_PREISE];
+  if (!p) return 0;
   const usd =
     (args.eingabeToken / 1_000_000) * p.eingabe +
     (args.ausgabeToken / 1_000_000) * p.ausgabe +

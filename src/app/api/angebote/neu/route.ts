@@ -321,7 +321,9 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
     cache_token: ergebnis.usage.cacheReadTokens,
     audio_sekunden: 0,
     kosten_zehntelcent: extraktionKosten({
-      modell: "claude-opus-5",
+      // Das tatsächlich benutzte Modell, nicht ein festgeschriebenes: sonst
+      // rechnen wir nach einem Wechsel stillschweigend falsch.
+      modell: ergebnis.modell,
       eingabeToken: ergebnis.usage.inputTokens,
       ausgabeToken: ergebnis.usage.outputTokens,
       cacheToken: ergebnis.usage.cacheReadTokens,
