@@ -79,6 +79,21 @@ sie zwar nicht, die Middleware prüft aber bei jedem Aufruf die Sitzung.
    `customer.subscription.created/updated/deleted`. Das Signing Secret danach
    als `STRIPE_WEBHOOK_SECRET` in Vercel eintragen und neu veröffentlichen.
 
+## Vorher selbst prüfen
+
+Vier Befehle, die alle ohne Zugangsdaten für fremde Dienste laufen und
+nichts auslösen — keine Zahlung, keine E-Mail:
+
+| Befehl | Was er beantwortet |
+| --- | --- |
+| `npm run bereit` | Sind alle Einstellungen gesetzt und plausibel? (`--umgebung` liest die echte Umgebung statt `.env.local`) |
+| `npm run test:rauch` | Antworten im **gebauten** Next alle Seiten und Routen, und steht im PDF wirklich etwas drin? |
+| `npm run mobil` | Bedienbarkeit bei 390 px und 360 px, im echten Browser gemessen |
+| `npm run erechnung` | Besteht die E-Rechnung das CII-Schema und den EN-16931-Prüfer der EU-Kommission? |
+
+Dazu `npm test`, `npm run typecheck` und — mit laufendem Postgres —
+`npm run test:db` für Trigger und Mandantentrennung.
+
 ## Danach prüfen
 
 In dieser Reihenfolge, weil jeder Punkt den nächsten voraussetzt:
@@ -104,5 +119,7 @@ Nichts davon ist Programmierarbeit:
 2. **AV-Verträge annehmen** bei Supabase, OpenAI, Anthropic, Stripe, Resend
    und Vercel. Abschnitt 5 derselben Checkliste.
 3. **Anwaltliche Prüfung** der ausgefüllten Texte.
-4. **E-Rechnung mit einem echten EN-16931-Validator prüfen**, bevor die
-   erste an einen Auftraggeber geht.
+4. **Echten Ablauf einmal von Hand durchgehen** — Registrierung,
+   Bestätigungsmail, Passwort-Reset, ein gesprochenes Angebot, Abo im
+   Stripe-Testmodus. Das lässt sich ohne die echten Zugangsdaten nicht
+   automatisieren; die Liste oben unter „Danach prüfen“ ist genau dafür da.

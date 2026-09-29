@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { serverEnv } from "./env";
+import { publicEnv, serverEnv } from "./env";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 describe("serverEnv", () => {
@@ -16,5 +16,38 @@ describe("serverEnv", () => {
   it("verweigert Zugriff im Browser", () => {
     vi.stubGlobal("window", {});
     expect(() => serverEnv()).toThrow("niemals im Browser");
+  });
+});
+
+describe("eigene Adresse", () => {
+  const alt = { ...process.env };
+  afterEach(() => {
+    process.env = { ...alt };
+  });
+
+  it("nimmt die eingetragene Adresse ohne Schrägstrich am Ende", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://baustift.de/";
+    expect(publicEnv.siteUrl).toBe("https://baustift.de");
+  });
+
+  it("fällt in der Entwicklung auf localhost zurück", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.NEXT_PUBLIC_VERCEL_URL;
+    expect(publicEnv.siteUrl).toBe("http://localhost:3000");
+  });
+
+  it("nimmt in der Vorschau die Adresse von Vercel", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_VERCEL_URL = "baustift-abc123.vercel.app";
+    expect(publicEnv.siteUrl).toBe("https://baustift-abc123.vercel.app");
+  });
+
+  it("scheitert in Produktion laut, statt auf localhost zu verlinken", () => {
+    // Sonst geht der Bestätigungslink jeder Registrierung ins Leere.
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.NEXT_PUBLIC_VERCEL_URL;
+    vi.stubEnv("NODE_ENV", "production");
+    expect(() => publicEnv.siteUrl).toThrow("NEXT_PUBLIC_SITE_URL");
+    vi.unstubAllEnvs();
   });
 });

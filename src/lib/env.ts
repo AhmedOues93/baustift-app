@@ -43,8 +43,32 @@ export const publicEnv = {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     );
   },
+  /**
+   * Die eigene Adresse. Klingt nebensächlich, ist es nicht: daraus baut sich
+   * der Bestätigungslink in der Registrierungs-E-Mail, der Link zum
+   * Passwort-Zurücksetzen und die Rücksprungadresse von Stripe.
+   *
+   * Steht sie in Produktion nicht, zeigen diese Links auf localhost — und
+   * niemand kann sich anmelden. Vorher fiel das nicht auf, weil einfach
+   * stillschweigend "http://localhost:3000" eingesetzt wurde. Also: in
+   * Produktion lieber sofort und laut scheitern als leise falsch verlinken.
+   */
   get siteUrl() {
-    return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const gesetzt = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (gesetzt) return gesetzt.replace(/\/+$/, "");
+
+    // Vercel kennt seine Adresse selbst — für Vorschau-Bereitstellungen reicht das.
+    const vercel = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
+    if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
+
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Fehlende Umgebungsvariable: NEXT_PUBLIC_SITE_URL. Ohne sie zeigen " +
+          "Bestätigungs- und Passwortlinks auf localhost. Eintragen als " +
+          "vollständige Adresse, z. B. https://baustift.de",
+      );
+    }
+    return "http://localhost:3000";
   },
 };
 
