@@ -117,12 +117,18 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
   tail -10 "$SICHERUNG/server.log" | sed 's/^/    /'
   exit 1
 fi
+# Der Name der Chunk-Datei enthält den Hash des Builds. Ein Server, der einen
+# älteren Stand ausliefert, kennt die Datei nicht und antwortet mit 404. Das
+# ist unabhängig davon, welche Seite gerade welche Chunks einbindet.
 CHUNK=$(ls .next/static/chunks/main-app-*.js 2>/dev/null | head -1)
-CHUNK="${CHUNK#.next/}"
-if [ -n "$CHUNK" ] && ! curl -s --noproxy localhost "http://localhost:$PORT/angebote" | grep -q "$(basename "$CHUNK")"; then
-  echo "✗ Der antwortende Server liefert einen anderen Stand aus als gerade gebaut."
-  echo "  Erwartet wurde $(basename "$CHUNK"). Vermutlich läuft noch eine alte Instanz."
-  exit 1
+if [ -n "$CHUNK" ]; then
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" --noproxy localhost \
+    "http://localhost:$PORT/_next/${CHUNK#.next/}")
+  if [ "$CODE" != "200" ]; then
+    echo "✗ Der antwortende Server kennt den gerade gebauten Stand nicht ($CODE)."
+    echo "  Gesucht: /_next/${CHUNK#.next/} — vermutlich läuft noch eine alte Instanz."
+    exit 1
+  fi
 fi
 
 fehler=0
