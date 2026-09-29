@@ -16,7 +16,8 @@
     "bereit": "node scripts/betriebsbereit.mjs",
     "mobil": "./scripts/mobil-pruefen.sh",
     "erechnung": "./scripts/erechnung-pruefen.sh",
-    "test:rauch": "./scripts/rauchtest.sh"
+    "test:rauch": "./scripts/rauchtest.sh",
+    "bilder": "./scripts/bilder-aufnehmen.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

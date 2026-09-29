@@ -487,8 +487,8 @@ function Muster() {
             <Image
               src="/bilder/desktop.png"
               alt="Baustift am Rechner: die Angebotsübersicht mit Seitenleiste"
-              width={1800}
-              height={1125}
+              width={2560}
+              height={1600}
               className="h-auto w-full rounded-[0.8rem]"
             />
           </div>
