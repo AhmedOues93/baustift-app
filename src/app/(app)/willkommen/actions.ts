@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parsePreis } from "@/lib/format";
+import { ibanFormatieren, ibanGueltig } from "@/lib/bank";
 import { parseCsv } from "@/lib/preisliste-import";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,6 +51,12 @@ export async function einrichtungAbschliessen(
     return { fehler: "Der MwSt-Satz muss eine Zahl zwischen 0 und 100 sein." };
   }
 
+  // Falsche IBAN jetzt abfangen, nicht erst wenn die erste Rechnung raus ist.
+  const ibanRoh = text("iban");
+  if (ibanRoh !== null && !ibanGueltig(ibanRoh)) {
+    return { fehler: "Die IBAN stimmt nicht. Bitte noch einmal vergleichen." };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
@@ -60,7 +67,7 @@ export async function einrichtungAbschliessen(
       ort: text("ort"),
       telefon: text("telefon"),
       steuernummer: text("steuernummer"),
-      iban: text("iban"),
+      iban: ibanRoh === null ? null : ibanFormatieren(ibanRoh),
       kleinunternehmer,
       mwst_satz: kleinunternehmer ? 0 : mwst,
       onboarding_am: new Date().toISOString(),

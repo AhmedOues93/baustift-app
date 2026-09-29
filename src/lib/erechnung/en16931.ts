@@ -79,6 +79,37 @@ export function rechnungEn16931Xml(args: {
     ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${xml(f.ust_id)}</ram:ID></ram:SpecifiedTaxRegistration>`
     : `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${xml(f.steuernummer)}</ram:ID></ram:SpecifiedTaxRegistration>`;
 
+  /**
+   * BR-CO-26: der Empfaenger muss den Absender eindeutig zuordnen koennen und
+   * braucht dafuer BT-29 (Kennung), BT-30 (Registernummer) oder BT-31
+   * (USt-IdNr.). Die Steuernummer in BT-32 zaehlt dafuer nicht. Ohne
+   * USt-IdNr. — also bei jedem Kleinunternehmer — wurde die Datei vom
+   * offiziellen EN-16931-Pruefer abgewiesen. Deshalb wird die Steuernummer
+   * zusaetzlich als Verkaeuferkennung (BT-29) gefuehrt.
+   */
+  const sellerId = f.ust_id
+    ? ""
+    : `<ram:ID>${xml(f.steuernummer)}</ram:ID>`;
+
+  /**
+   * BG-6 (Kontaktdaten des Verkaeufers). Fuer die reine EN 16931 optional,
+   * fuer XRechnung (BR-DE-2) Pflicht. Die Daten liegen im Profil sowieso vor,
+   * also werden sie mitgeschickt: so ist die Datei auch fuer oeffentliche
+   * Auftraggeber brauchbar, ohne dass irgendetwas erfunden wird.
+   */
+  const sellerKontakt =
+    f.inhaber_name || f.telefon || f.email
+      ? `<ram:DefinedTradeContact>` +
+        (f.inhaber_name ? `<ram:PersonName>${xml(f.inhaber_name)}</ram:PersonName>` : "") +
+        (f.telefon
+          ? `<ram:TelephoneUniversalCommunication><ram:CompleteNumber>${xml(f.telefon)}</ram:CompleteNumber></ram:TelephoneUniversalCommunication>`
+          : "") +
+        (f.email
+          ? `<ram:EmailURIUniversalCommunication><ram:URIID>${xml(f.email)}</ram:URIID></ram:EmailURIUniversalCommunication>`
+          : "") +
+        `</ram:DefinedTradeContact>`
+      : "";
+
   const lines = positionen.map((p, i) => `
     <ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument><ram:LineID>${i + 1}</ram:LineID></ram:AssociatedDocumentLineDocument>
@@ -98,14 +129,14 @@ export function rechnungEn16931Xml(args: {
   <rsm:SupplyChainTradeTransaction>
     ${lines}
     <ram:ApplicableHeaderTradeAgreement>
-      <ram:SellerTradeParty><ram:Name>${xml(f.firma_name)}</ram:Name><ram:PostalTradeAddress><ram:PostcodeCode>${xml(f.plz)}</ram:PostcodeCode><ram:LineOne>${xml(f.strasse)}</ram:LineOne><ram:CityName>${xml(f.ort)}</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>${sellerTax}</ram:SellerTradeParty>
+      <ram:SellerTradeParty>${sellerId}<ram:Name>${xml(f.firma_name)}</ram:Name>${sellerKontakt}<ram:PostalTradeAddress><ram:PostcodeCode>${xml(f.plz)}</ram:PostcodeCode><ram:LineOne>${xml(f.strasse)}</ram:LineOne><ram:CityName>${xml(f.ort)}</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>${sellerTax}</ram:SellerTradeParty>
       <ram:BuyerTradeParty><ram:Name>${xml(k.name)}</ram:Name><ram:PostalTradeAddress><ram:PostcodeCode>${xml(k.plz)}</ram:PostcodeCode><ram:LineOne>${xml(k.strasse)}</ram:LineOne><ram:CityName>${xml(k.ort)}</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress></ram:BuyerTradeParty>
     </ram:ApplicableHeaderTradeAgreement>
     <ram:ApplicableHeaderTradeDelivery><ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime><udt:DateTimeString format="102">${datum(r.leistung_von)}</udt:DateTimeString></ram:OccurrenceDateTime></ram:ActualDeliverySupplyChainEvent></ram:ApplicableHeaderTradeDelivery>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
-      <ram:ApplicableTradeTax><ram:CalculatedAmount>${betrag(r.mwst_betrag)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>${befreiungsgrund}<ram:BasisAmount>${betrag(r.netto)}</ram:BasisAmount><ram:CategoryCode>${steuerKategorie}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
       ${f.iban ? `<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>58</ram:TypeCode><ram:PayeePartyCreditorFinancialAccount><ram:IBANID>${xml(f.iban.replaceAll(" ", ""))}</ram:IBANID></ram:PayeePartyCreditorFinancialAccount></ram:SpecifiedTradeSettlementPaymentMeans>` : ""}
+      <ram:ApplicableTradeTax><ram:CalculatedAmount>${betrag(r.mwst_betrag)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>${befreiungsgrund}<ram:BasisAmount>${betrag(r.netto)}</ram:BasisAmount><ram:CategoryCode>${steuerKategorie}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
       ${r.faellig_am ? `<ram:SpecifiedTradePaymentTerms><ram:DueDateDateTime><udt:DateTimeString format="102">${datum(r.faellig_am)}</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>` : ""}
       <ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${betrag(r.netto)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${betrag(r.netto)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${betrag(r.mwst_betrag)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${betrag(r.brutto)}</ram:GrandTotalAmount><ram:DuePayableAmount>${betrag(r.brutto)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
     </ram:ApplicableHeaderTradeSettlement>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { parsePreis } from "@/lib/format";
+import { bicGueltig, ibanFormatieren, ibanGueltig } from "@/lib/bank";
 
 /**
  * Firmendaten — das, was später im Briefkopf und in der Fusszeile des
@@ -43,6 +44,19 @@ export async function firmendatenSpeichern(
 
   if (mwst === null || mwst > 100) {
     return { fehler: "Der MwSt-Satz muss eine Zahl zwischen 0 und 100 sein." };
+  }
+
+  /**
+   * Bankverbindung. Eine IBAN mit Zahlendreher steht sonst still im PDF und
+   * in der E-Rechnung — der Kunde kann nicht zahlen und sagt es nicht.
+   */
+  const ibanRoh = text("iban");
+  if (ibanRoh !== null && !ibanGueltig(ibanRoh)) {
+    return { fehler: "Die IBAN stimmt nicht. Bitte noch einmal vergleichen." };
+  }
+  const bicRoh = text("bic");
+  if (bicRoh !== null && !bicGueltig(bicRoh)) {
+    return { fehler: "Die BIC stimmt nicht. Sie hat 8 oder 11 Stellen." };
   }
 
   const gueltigRoh = Number(formData.get("angebot_gueltig_tage") ?? 30);
@@ -87,8 +101,8 @@ export async function firmendatenSpeichern(
       website: text("website"),
       steuernummer: text("steuernummer"),
       ust_id: text("ust_id"),
-      iban: text("iban"),
-      bic: text("bic"),
+      iban: ibanRoh === null ? null : ibanFormatieren(ibanRoh),
+      bic: bicRoh === null ? null : bicRoh.replace(/\s/g, "").toUpperCase(),
       bank_name: text("bank_name"),
       kleinunternehmer,
       // Kleinunternehmer nach §19 UStG weisen keine Umsatzsteuer aus.

@@ -26,7 +26,7 @@ const firma: Profile = {
   strasse: "Handwerkerweg 8", plz: "50667", ort: "Köln", telefon: "0221 123456",
   email: "info@schulz-sanitaer.de", website: "schulz-sanitaer.de",
   steuernummer: "215/5721/0341", ust_id: "DE123456789",
-  iban: "DE02 3705 0198 0000 1234 56", bic: "COLSDE33", bank_name: "Sparkasse Köln",
+  iban: "DE89 3704 0044 0532 0130 00", bic: "COLSDE33", bank_name: "Sparkasse Köln",
   logo_url: null, kleinunternehmer: false, mwst_satz: 19, angebot_gueltig_tage: 30,
   stripe_customer_id: null, stripe_subscription_id: null, subscription_status: "aktiv", stripe_ereignis_am: null,
   onboarding_am: null, av_zugestimmt_am: null, agb_zugestimmt_am: null,
@@ -84,7 +84,7 @@ describe("Rechnungs-PDF", () => {
     expect(text).toContain("3.277,26");
     // Zahlungsziel und Bankverbindung
     expect(text).toContain("07.10.2026");
-    expect(text).toContain("DE02 3705 0198 0000 1234 56");
+    expect(text).toContain("DE89 3704 0044 0532 0130 00");
   });
 
   it("nennt bei einem einzigen Leistungstag kein Von-Bis", async () => {

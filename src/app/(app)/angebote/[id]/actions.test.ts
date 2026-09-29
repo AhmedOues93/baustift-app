@@ -65,6 +65,8 @@ vi.mock("@/lib/pdf/erzeugen", () => ({
 const {
   angebotKopieren,
   angebotNachfassen,
+  angebotVersenden,
+  positionenBestaetigen,
   angebotSpeichern,
   statusSetzen,
 } = await import("./actions");
@@ -180,6 +182,13 @@ describe("angebotSpeichern", () => {
 });
 
 describe("statusSetzen", () => {
+  // Seit dem Prüftor setzt "gesendet" voraus, dass keine Position mehr
+  // offen ist. Die Vorgabedaten bringen eine mit; hier geht es aber um die
+  // Zeitstempel, nicht um die Sperre — die hat ihren eigenen Block.
+  beforeEach(() => {
+    db.tabellen.positionen.forEach((p) => (p.zu_pruefen = false));
+  });
+
   it("setzt beim Versenden den Zeitstempel fürs Nachfassen", async () => {
     await statusSetzen("a1", "gesendet");
 
@@ -354,5 +363,76 @@ describe("angebotNachfassen", () => {
     const ergebnis = await angebotNachfassen("a1");
     expect(ergebnis.fehler).toContain("nicht gefunden");
     expect(post.gesendet).toHaveLength(0);
+  });
+});
+
+describe("Prüftor vor dem Versenden", () => {
+  /** Eine Position, bei der die KI sich nicht sicher war. */
+  function unsicher() {
+    // Genau eine offene Zeile, damit die Zahlen in den Erwartungen
+    // eindeutig sind: die Vorgabedaten bringen selbst schon eine mit.
+    db.tabellen.positionen.forEach((p) => (p.zu_pruefen = false));
+    db.tabellen.positionen[0].zu_pruefen = true;
+    post.verfuegbar = true;
+    Object.assign(db.tabellen.angebote[0], {
+      status: "entwurf", nummer: "AN-2026-0001", gueltig_bis: "2026-12-31",
+    });
+  }
+
+  it("versendet kein Angebot mit ungeprüften Positionen", async () => {
+    unsicher();
+
+    const ergebnis = await angebotVersenden("a1");
+
+    // Der teure Fehler: eine geratene Zahl geht als verbindliches Angebot
+    // zum Kunden, und daran ist der Handwerker gebunden.
+    expect(ergebnis.fehler).toContain("zu prüfen");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("lässt auch das blosse Markieren als gesendet nicht durch", async () => {
+    unsicher();
+
+    // Sonst führt der Umweg über WhatsApp oder Ausdruck an der Sperre vorbei.
+    const ergebnis = await statusSetzen("a1", "gesendet");
+
+    expect(ergebnis.fehler).toContain("zu prüfen");
+    expect(db.tabellen.angebote[0].status).toBe("entwurf");
+  });
+
+  it("lässt andere Statuswechsel in Ruhe", async () => {
+    unsicher();
+
+    // "Abgelehnt" hat mit dem Prüfstand nichts zu tun.
+    const ergebnis = await statusSetzen("a1", "abgelehnt");
+    expect(ergebnis.fehler).toBeUndefined();
+  });
+
+  it("versendet, sobald bestätigt wurde", async () => {
+    unsicher();
+
+    const bestaetigt = await positionenBestaetigen("a1");
+    expect(bestaetigt.bestaetigt).toBe(1);
+    expect(db.tabellen.positionen.every((p) => !p.zu_pruefen)).toBe(true);
+
+    const ergebnis = await angebotVersenden("a1");
+    expect(ergebnis.fehler).toBeUndefined();
+    expect(post.gesendet).toHaveLength(1);
+  });
+
+  it("bestätigt nichts an fremden Angeboten", async () => {
+    unsicher();
+    db.tabellen.angebote[0].user_id = "jemand-anderes";
+
+    const ergebnis = await positionenBestaetigen("a1");
+
+    expect(ergebnis.fehler).toContain("nicht gefunden");
+    expect(db.tabellen.positionen[0].zu_pruefen).toBe(true);
+  });
+
+  it("meldet 0, wenn es nichts zu bestätigen gibt", async () => {
+    db.tabellen.positionen.forEach((p) => (p.zu_pruefen = false));
+    const ergebnis = await positionenBestaetigen("a1");
+    expect(ergebnis.bestaetigt).toBe(0);
   });
 });

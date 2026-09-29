@@ -77,6 +77,27 @@ describe("firmendatenSpeichern", () => {
     expect(db.tabellen.profiles[0].angebot_gueltig_tage).toBe(30);
   });
 
+  it("lehnt eine IBAN mit Zahlendreher ab und speichert nichts", async () => {
+    const ergebnis = await firmendatenSpeichern(
+      {},
+      formular({ iban: "DE89 3704 0044 0532 0310 00" }),
+    );
+
+    expect(ergebnis.fehler).toContain("IBAN");
+    // Nicht halb speichern: sonst stünde der neue Firmenname bei alter Bank.
+    expect(db.tabellen.profiles[0].firma_name).toBe("Alt");
+  });
+
+  it("speichert eine richtige IBAN in Vierergruppen", async () => {
+    await firmendatenSpeichern({}, formular({ iban: "de89370400440532013000" }));
+    expect(db.tabellen.profiles[0].iban).toBe("DE89 3704 0044 0532 0130 00");
+  });
+
+  it("lehnt eine BIC mit falscher Länge ab", async () => {
+    const ergebnis = await firmendatenSpeichern({}, formular({ bic: "COLSDE3" }));
+    expect(ergebnis.fehler).toContain("BIC");
+  });
+
   it("lehnt ein Logo im falschen Format ab", async () => {
     const fd = formular({});
     fd.set("logo", new File(["x"], "logo.svg", { type: "image/svg+xml" }));

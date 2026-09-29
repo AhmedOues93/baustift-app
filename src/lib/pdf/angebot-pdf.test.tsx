@@ -35,7 +35,7 @@ const firma: Profile = {
   website: "schulz-sanitaer.de",
   steuernummer: "215/5721/0341",
   ust_id: "DE123456789",
-  iban: "DE02 3705 0198 0000 1234 56",
+  iban: "DE89 3704 0044 0532 0130 00",
   bic: "COLSDE33",
   bank_name: "Sparkasse Köln",
   logo_url: null,
@@ -142,7 +142,7 @@ describe("Angebots-PDF", () => {
     expect(text).toContain("Schulz Sanitär GmbH");
     expect(text).toContain("215/5721/0341");
     expect(text).toContain("DE123456789");
-    expect(text).toContain("DE02 3705 0198 0000 1234 56");
+    expect(text).toContain("DE89 3704 0044 0532 0130 00");
 
     // Empfänger, Nummer, Frist.
     expect(text).toContain("Familie Becker");

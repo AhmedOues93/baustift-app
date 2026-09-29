@@ -155,6 +155,87 @@ export async function angebotSpeichern(args: {
   };
 }
 
+/**
+ * =============================================================================
+ * Das Prüftor
+ * =============================================================================
+ * Eine Position, die die KI nicht sicher zuordnen konnte, ist gelb markiert.
+ * Bis hierher war das ein Hinweis — versenden liess sich das Angebot
+ * trotzdem. Das ist die eine Stelle, an der ein stiller Fehler teuer wird:
+ * eine Zeile ohne Preis oder mit einem geratenen geht als verbindliches
+ * Angebot zum Kunden, und daran ist der Handwerker gebunden.
+ *
+ * Deshalb sperrt diese Prüfung alles, was das Angebot aus dem Haus lässt:
+ * E-Mail-Versand, "als gesendet markieren" und die Umwandlung in eine
+ * Rechnung. Sie steht auf dem Server und nicht nur im Bildschirm — ein Knopf,
+ * der ausgegraut ist, ist keine Sperre.
+ *
+ * Aufgehoben wird sie nur durch eine ausdrückliche Bestätigung des
+ * Handwerkers (siehe `positionenBestaetigen`) oder dadurch, dass er die
+ * Zeilen einzeln anfasst. Beides ist eine Entscheidung, kein Versehen.
+ */
+export async function offenePruefungen(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  angebotId: string,
+): Promise<number> {
+  const { count } = await supabase
+    .from("positionen")
+    .select("id", { count: "exact", head: true })
+    .eq("angebot_id", angebotId)
+    .eq("zu_pruefen", true);
+
+  return count ?? 0;
+}
+
+/** Die Meldung dazu — an drei Stellen gebraucht, also an einer Stelle formuliert. */
+export function pruefHinweis(anzahl: number): string {
+  return anzahl === 1
+    ? "Eine Position ist noch zu prüfen. Bestätige sie, bevor das Angebot rausgeht."
+    : `${anzahl} Positionen sind noch zu prüfen. Bestätige sie, bevor das Angebot rausgeht.`;
+}
+
+/**
+ * Alle offenen Positionen auf einmal bestätigen.
+ *
+ * Der zweite Weg neben dem Anfassen einzelner Zeilen: Wer das Angebot
+ * durchgesehen hat und sagt „passt so“, soll nicht zwölfmal tippen müssen.
+ * Ausdrücklich ist es trotzdem — es ist ein eigener Knopf mit eigener
+ * Rückfrage, nicht ein Nebeneffekt des Versendens.
+ */
+export async function positionenBestaetigen(
+  angebotId: string,
+): Promise<{ fehler?: string; bestaetigt?: number }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { fehler: "Bitte neu anmelden." };
+
+  // Gehört das Angebot ihm? RLS würde es abweisen, aber eine klare Meldung
+  // ist besser als ein stummes Nichts.
+  const { data: angebot } = await supabase
+    .from("angebote")
+    .select("id")
+    .eq("id", angebotId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!angebot) return { fehler: "Angebot nicht gefunden." };
+
+  const offen = await offenePruefungen(supabase, angebotId);
+  if (offen === 0) return { bestaetigt: 0 };
+
+  const { error } = await supabase
+    .from("positionen")
+    .update({ zu_pruefen: false })
+    .eq("angebot_id", angebotId)
+    .eq("zu_pruefen", true);
+
+  if (error) return { fehler: "Die Bestätigung konnte nicht gespeichert werden." };
+
+  revalidatePath(`/angebote/${angebotId}`);
+  return { bestaetigt: offen };
+}
+
 /** Status ändern (Entwurf → Gesendet → Angenommen …). */
 export async function statusSetzen(
   angebotId: string,
@@ -165,6 +246,14 @@ export async function statusSetzen(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { fehler: "Bitte neu anmelden." };
+
+  // Auf "gesendet" zu setzen heisst: das Angebot ist beim Kunden — per
+  // WhatsApp, ausgedruckt oder sonstwie. Dieselbe Sperre wie beim
+  // E-Mail-Versand, sonst führt der Umweg daran vorbei.
+  if (status === "gesendet") {
+    const offen = await offenePruefungen(supabase, angebotId);
+    if (offen > 0) return { fehler: pruefHinweis(offen) };
+  }
 
   const jetzt = new Date().toISOString();
 
@@ -206,6 +295,12 @@ export async function angebotVersenden(
   }
 
   const supabase = await createClient();
+
+  // Vor dem Erzeugen des PDF: es hat keinen Sinn, Rechenzeit in ein Dokument
+  // zu stecken, das ohnehin nicht rausgehen darf.
+  const offen = await offenePruefungen(supabase, angebotId);
+  if (offen > 0) return { fehler: pruefHinweis(offen) };
+
   const ergebnis = await angebotPdfErzeugen(supabase, angebotId);
   if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };
 

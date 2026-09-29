@@ -56,6 +56,17 @@ export async function rechnungAusAngebot(angebotId: string): Promise<void> {
     .eq("angebot_id", angebotId)
     .order("pos_nr");
 
+  /**
+   * Ungeprüfte Positionen kommen nicht in eine Rechnung.
+   *
+   * Beim Angebot ist eine falsche Zahl ärgerlich; in der Rechnung ist sie ein
+   * Beleg, der nach dem Festschreiben nicht mehr zu ändern ist und nur über
+   * ein Storno aus der Welt kommt. Also dieselbe Sperre — und zurück ins
+   * Angebot, wo sie sich bestätigen lassen.
+   */
+  const ungeprueft = (positionen ?? []).filter((p) => p.zu_pruefen).length;
+  if (ungeprueft > 0) redirect(`/angebote/${angebotId}?pruefen=1`);
+
   const { data: nummer } = await supabase.rpc("next_rechnung_nummer", {
     p_user_id: user.id,
   });

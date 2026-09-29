@@ -17,7 +17,7 @@ const firma: Profile = {
   id: "u1", firma_name: "Schulz Sanitär GmbH", inhaber_name: "Michael Schulz",
   strasse: "Handwerkerweg 8", plz: "50667", ort: "Köln", telefon: "0221 123456",
   email: "info@schulz.de", website: null, steuernummer: "215/5721/0341",
-  ust_id: "DE123456789", iban: "DE02 3705 0198 0000 1234 56", bic: "COLSDE33",
+  ust_id: "DE123456789", iban: "DE89 3704 0044 0532 0130 00", bic: "COLSDE33",
   bank_name: "Sparkasse", logo_url: null, kleinunternehmer: false, mwst_satz: 19,
   angebot_gueltig_tage: 30, stripe_customer_id: null, stripe_subscription_id: null,
   subscription_status: "aktiv", stripe_ereignis_am: null, onboarding_am: null, av_zugestimmt_am: null,
@@ -97,7 +97,7 @@ describe("Grundgerüst", () => {
     expect(xml).toContain("<ram:GrandTotalAmount>499.80</ram:GrandTotalAmount>");
     expect(xml).toContain("<ram:TaxBasisTotalAmount>420.00</ram:TaxBasisTotalAmount>");
     // Ohne Leerzeichen, sonst weisen manche Prüfer die IBAN ab.
-    expect(xml).toContain("DE02370501980000123456");
+    expect(xml).toContain("DE89370400440532013000");
   });
 
   it("gibt jeder Position eine Nummer und die richtige Mengeneinheit", () => {

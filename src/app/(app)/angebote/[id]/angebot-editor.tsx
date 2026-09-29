@@ -7,6 +7,7 @@ import {
   angebotKopieren,
   angebotLoeschen,
   angebotNachfassen,
+  positionenBestaetigen,
   angebotSpeichern,
   angebotVersenden,
   statusSetzen,
@@ -321,12 +322,52 @@ export function AngebotEditor({
         </p>
       ) : null}
 
+      {/* Das Prüftor -------------------------------------------------------
+          Solange hier etwas offen ist, geht das Angebot nicht raus — weder
+          per E-Mail noch als "gesendet markiert" noch als Rechnung. Der
+          Abschnitt sagt deshalb nicht nur, dass etwas offen ist, sondern
+          auch, was zu tun ist. */}
       {offeneFragen > 0 ? (
-        <p className="rounded-feld bg-warnung-flaeche px-3 py-2.5 text-sm text-warnung">
-          <span className="zahl font-medium">{offeneFragen}</span>{" "}
-          {offeneFragen === 1 ? "Position ohne Preis" : "Positionen ohne Preis"}{" "}
-          — unten markiert.
-        </p>
+        <section className="rounded-karte bg-warnung-flaeche p-4">
+          <p className="font-medium text-warnung">
+            <span className="zahl">{offeneFragen}</span>{" "}
+            {offeneFragen === 1 ? "Position ist" : "Positionen sind"} noch zu
+            prüfen
+          </p>
+          <p className="mt-1 text-sm text-warnung">
+            Die KI war sich bei {offeneFragen === 1 ? "ihr" : "ihnen"} nicht
+            sicher — unten gelb markiert. Preis eintragen oder die Zeile
+            einmal anfassen; dann ist sie geprüft. Bis dahin lässt sich das
+            Angebot nicht versenden.
+          </p>
+          <Button
+            variante="akzent"
+            className="mt-3 w-full sm:w-auto"
+            disabled={statusPending}
+            onClick={() => {
+              if (
+                !confirm(
+                  `${offeneFragen === 1 ? "Eine Position" : `${offeneFragen} Positionen`} als geprüft bestätigen?\n\n` +
+                    "Damit stehst du für die Mengen und Preise gerade — das Angebot ist für deinen Kunden verbindlich.",
+                )
+              ) {
+                return;
+              }
+              statusStarten(async () => {
+                await speichern();
+                const ergebnis = await positionenBestaetigen(angebot.id);
+                if (ergebnis.fehler) {
+                  setVersandMeldung({ art: "fehler", text: ergebnis.fehler });
+                  return;
+                }
+                setZeilen((alt) => alt.map((z) => ({ ...z, zu_pruefen: false })));
+                router.refresh();
+              });
+            }}
+          >
+            Alles geprüft — bestätigen
+          </Button>
+        </section>
       ) : null}
 
       {/* Positionen ---------------------------------------------------------- */}
@@ -427,15 +468,19 @@ export function AngebotEditor({
           <Button
             variante="akzent"
             className="flex-1"
-            disabled={statusPending}
+            // Die Sperre steht auch auf dem Server; hier verhindert sie nur
+            // den Weg zu einer Fehlermeldung, die man nicht braucht.
+            disabled={statusPending || offeneFragen > 0}
             onClick={kannVersenden ? versenden : () => statusAendern("gesendet")}
           >
             <IconSenden className="h-5 w-5" />
             {statusPending
               ? "Einen Moment…"
-              : kannVersenden
-                ? "Per E-Mail senden"
-                : "Als gesendet markieren"}
+              : offeneFragen > 0
+                ? "Erst prüfen"
+                : kannVersenden
+                  ? "Per E-Mail senden"
+                  : "Als gesendet markieren"}
           </Button>
         ) : angebot.status === "angenommen" ? (
           <div className="flex flex-1 gap-2">
