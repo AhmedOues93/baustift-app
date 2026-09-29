@@ -248,7 +248,20 @@ begin
   if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Rechnungen sichtbar (%)', v; end if;
   select count(*) into v from public.rechnung_positionen;
   if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Rechnungspositionen sichtbar (%)', v; end if;
-  raise notice '13. RLS -> fremder Betrieb sieht keine Rechnungen';
+
+  -- Angebotspositionen: die Tabelle mit den Einzelpreisen. Wer sie sieht,
+  -- kennt die Kalkulation des Nachbarn. Sie hängt nicht selbst an einer
+  -- user_id, sondern am Angebot — also genau die Stelle, an der eine Policy
+  -- leicht zu weit gerät.
+  select count(*) into v from public.positionen;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Angebotspositionen sichtbar (%)', v; end if;
+
+  -- Und schreiben darf er sie auch nicht: eine unsichere Position auf
+  -- "geprüft" zu setzen, wäre sonst von aussen möglich.
+  update public.positionen set zu_pruefen = false;
+  if found then raise exception 'SICHERHEITSLÜCKE: fremde Positionen änderbar'; end if;
+
+  raise notice '13. RLS -> fremder Betrieb sieht weder Rechnungen noch Angebotspositionen';
 end $$;
 
 reset role;

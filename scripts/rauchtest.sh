@@ -29,7 +29,13 @@ SICHERUNG="$(mktemp -d)"
 SERVER_PID=""
 
 zurueck() {
-  [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true
+  # `npx next start` startet einen Kindprozess. Nur das npx zu beenden lässt
+  # den eigentlichen Server weiterlaufen — der hängt dann auf dem Port und der
+  # nächste Testlauf misst gegen ihn. Deshalb die ganze Prozessgruppe.
+  if [ -n "$SERVER_PID" ]; then
+    kill -- -"$SERVER_PID" 2>/dev/null || kill "$SERVER_PID" 2>/dev/null || true
+  fi
+  pkill -f "next start -p $PORT" 2>/dev/null || true
   for datei in src/lib/supabase/server.ts src/middleware.ts next.config.mjs; do
     name="$(echo "$datei" | tr '/' '_')"
     [ -f "$SICHERUNG/$name" ] && cp "$SICHERUNG/$name" "$datei"
@@ -37,6 +43,17 @@ zurueck() {
   rm -rf "$SICHERUNG"
 }
 trap zurueck EXIT
+
+# Ist der Port noch belegt, antwortet unten eine ALTE Instanz, und der Test
+# meldet grün für einen Stand, der längst überschrieben ist. Genau das ist hier
+# passiert: ein vergessener `next start` von vorgestern hat einen ganzen
+# Testlauf bestätigt. Also erst gar nicht anfangen.
+if curl -s -o /dev/null --max-time 2 --noproxy localhost "http://localhost:$PORT/"; then
+  echo "✗ Auf Port $PORT antwortet schon etwas."
+  echo "  Der Test würde gegen diese fremde Instanz messen. Erst beenden:"
+  echo "    pkill -f 'next start -p $PORT'"
+  exit 1
+fi
 
 echo "→ Echte Dateien sichern"
 for datei in src/lib/supabase/server.ts src/middleware.ts next.config.mjs; do
@@ -84,13 +101,29 @@ if ! npm run build > "$SICHERUNG/build.log" 2>&1; then
 fi
 
 echo "→ Starten auf Port $PORT"
-npx next start -p "$PORT" > "$SICHERUNG/server.log" 2>&1 &
+setsid npx next start -p "$PORT" > "$SICHERUNG/server.log" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 30); do
   if curl -s -o /dev/null --noproxy localhost "http://localhost:$PORT/angebote"; then break; fi
   sleep 1
 done
+
+# Und jetzt beweisen, dass wir mit UNSEREM Server reden: der Prozess muss
+# leben, und die ausgelieferten Chunk-Namen müssen die des frischen Builds
+# sein. Ein Server, der gar nicht starten konnte (Port belegt), fällt hier auf.
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "✗ Der Server ist nicht gestartet:"
+  tail -10 "$SICHERUNG/server.log" | sed 's/^/    /'
+  exit 1
+fi
+CHUNK=$(ls .next/static/chunks/main-app-*.js 2>/dev/null | head -1)
+CHUNK="${CHUNK#.next/}"
+if [ -n "$CHUNK" ] && ! curl -s --noproxy localhost "http://localhost:$PORT/angebote" | grep -q "$(basename "$CHUNK")"; then
+  echo "✗ Der antwortende Server liefert einen anderen Stand aus als gerade gebaut."
+  echo "  Erwartet wurde $(basename "$CHUNK"). Vermutlich läuft noch eine alte Instanz."
+  exit 1
+fi
 
 fehler=0
 
@@ -204,6 +237,21 @@ else
   echo "  ✗ POST /api/aufmass/gibtsnicht/messung -> $antwort (erwartet 404)"
   fehler=$((fehler + 1))
 fi
+
+echo "→ Prüftor"
+# Angebot a1 hat eine Position, bei der die KI unsicher war. Solange die nicht
+# bestätigt ist, darf die Seite keinen Versandknopf anbieten. Das ist die
+# sichtbare Hälfte der Sperre — die serverseitige steht in actions.ts und wird
+# von den Unit-Tests geprüft.
+seite=$(curl -s --noproxy localhost "http://localhost:$PORT/angebote/a1")
+for erwartet in "noch zu" "Alles geprüft" "Erst prüfen"; do
+  if printf '%s' "$seite" | grep -q "$erwartet"; then
+    echo "  ✓ Angebot a1 zeigt \"$erwartet\""
+  else
+    echo "  ✗ Angebot a1: \"$erwartet\" fehlt — das Prüftor ist nicht sichtbar"
+    fehler=$((fehler + 1))
+  fi
+done
 
 echo "→ Inhalt der PDFs"
 for ziel in "angebote/a1:AN-2026-0041" "rechnungen/r3:RE-2026-0016"; do
