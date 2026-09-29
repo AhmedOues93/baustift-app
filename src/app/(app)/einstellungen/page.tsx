@@ -102,7 +102,8 @@ export default async function EinstellungenPage() {
       <DatenBereich firmaName={profil.firma_name || user.email || "mein Konto"} />
 
       <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-text-leise">
+        {/* Wie in der Fusszeile der Startseite: 44 px hohe Tippfläche. */}
+        <div className="flex flex-wrap items-center gap-x-4 text-sm text-text-leise [&>a]:inline-flex [&>a]:min-h-[44px] [&>a]:items-center">
           <Link href="/rechtliches/impressum" className="underline underline-offset-2">
             Impressum
           </Link>

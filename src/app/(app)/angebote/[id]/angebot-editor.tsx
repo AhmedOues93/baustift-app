@@ -646,7 +646,10 @@ function PositionsKarte({
         </span>
       </div>
 
-      <div className="mt-2 grid grid-cols-[3.75rem_1fr_1fr_2.75rem] gap-2 pl-6">
+      {/* Die Aufteilung ist am schmalsten verbreiteten Handy (360 px) gemessen,
+          nicht geschätzt: bei gleich breiten Spalten stand von „1.450,00 €“ nur
+          „180,0“ im Feld. Der Betrag ist das Einzige, was hier stimmen muss. */}
+      <div className="mt-2 grid grid-cols-[3.25rem_minmax(0,0.85fr)_minmax(0,1.15fr)_2.5rem] gap-1.5 pl-5">
         <input
           value={mengeText}
           onChange={(e) => {
@@ -684,9 +687,9 @@ function PositionsKarte({
             onBlur={() => setPreisText(formatPreisEingabe(zeile.einzelpreis))}
             inputMode="decimal"
             aria-label={`Einzelpreis Position ${nummer}`}
-            className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche pl-1.5 pr-5 text-right text-base text-text focus:border-text focus:outline-none"
+            className="zahl min-h-11 w-full rounded-feld border border-linie bg-flaeche pl-1 pr-4 text-right text-base text-text focus:border-text focus:outline-none"
           />
-          <span className="zahl pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-sm text-text-leise">
+          <span className="zahl pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-sm text-text-leise">
             €
           </span>
         </div>

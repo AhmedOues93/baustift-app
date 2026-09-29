@@ -725,7 +725,9 @@ function Fusszeile() {
           </p>
         </div>
 
-        <nav className="flex flex-wrap gap-x-6 gap-y-3 border-t border-text-invers/10 pt-6 text-sm">
+        {/* py-2.5 sind hier keine Optik: mit 20 px Zeilenhöhe sind die Verweise
+            am Handy kaum zu treffen. 44 px ist das Mass einer Fingerkuppe. */}
+        <nav className="flex flex-wrap items-center gap-x-6 border-t border-text-invers/10 pt-4 text-sm [&>a]:inline-flex [&>a]:min-h-[44px] [&>a]:items-center">
           <Link href="/rechtliches/impressum" className="text-text-invers/70 hover:text-text-invers">
             Impressum
           </Link>
