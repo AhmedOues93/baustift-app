@@ -39,6 +39,13 @@ async function logoLaden(
 export async function angebotPdfErzeugen(
   supabase: Awaited<ReturnType<typeof createClient>>,
   angebotId: string,
+  /**
+   * Wem das Angebot gehört. Normalerweise leer — dann zählt die Session.
+   * Gesetzt wird das nur vom öffentlichen Kundenlink: dort gibt es keine
+   * Session, und die Berechtigung hat die Datenbank schon über den
+   * Schlüssel geprüft (siehe angebot_id_per_token).
+   */
+  besitzer?: string,
 ): Promise<
   | { fehler: string; puffer?: undefined }
   | { fehler?: undefined; puffer: Buffer; dateiname: string; angebot: Angebot; kunde: Kunde | null; firma: Profile }
@@ -46,7 +53,8 @@ export async function angebotPdfErzeugen(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { fehler: "Nicht angemeldet." };
+  const eigentuemer = besitzer ?? user?.id;
+  if (!eigentuemer) return { fehler: "Nicht angemeldet." };
 
   /**
    * RLS sorgt dafür, dass hier nur eigene Angebote ankommen. Der Filter auf
@@ -58,16 +66,16 @@ export async function angebotPdfErzeugen(
     .from("angebote")
     .select("*")
     .eq("id", angebotId)
-    .eq("user_id", user.id)
+    .eq("user_id", eigentuemer)
     .maybeSingle();
 
   if (!angebot) return { fehler: "Angebot nicht gefunden." };
 
   const [{ data: positionen }, { data: firma }, kundeErgebnis] = await Promise.all([
     supabase.from("positionen").select("*").eq("angebot_id", angebot.id).order("pos_nr"),
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase.from("profiles").select("*").eq("id", eigentuemer).single(),
     angebot.kunde_id
-      ? supabase.from("kunden").select("*").eq("id", angebot.kunde_id).eq("user_id", user.id).maybeSingle()
+      ? supabase.from("kunden").select("*").eq("id", angebot.kunde_id).eq("user_id", eigentuemer).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 

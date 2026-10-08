@@ -22,6 +22,7 @@ PSQL=(psql -q -v ON_ERROR_STOP=1)
 echo "→ Testdatenbank '$DB' neu aufbauen"
 psql -q -c "drop database if exists $DB" postgres
 psql -q -c "drop role if exists app_user" postgres
+psql -q -c "drop role if exists app_anon" postgres
 psql -q -c "create database $DB" postgres
 
 echo "→ Supabase-Bausteine nachbauen"

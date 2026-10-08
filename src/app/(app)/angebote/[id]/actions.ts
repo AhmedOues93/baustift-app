@@ -11,7 +11,9 @@ import {
 import { istNachfassFaellig } from "@/lib/angebot";
 import { angebotPdfErzeugen } from "@/lib/pdf/erzeugen";
 import { createClient } from "@/lib/supabase/server";
+import { freigabeLink } from "./freigabe";
 import { offenePruefungen, versandSperre } from "./pruefung";
+
 import type { AngebotStatus, Einheit } from "@/types/database";
 
 /**
@@ -282,6 +284,7 @@ export async function angebotVersenden(
     gueltigBis: angebot.gueltig_bis,
     ansprechpartner: kunde.ansprechpartner,
     telefon: firma.telefon,
+    freigabeUrl: freigabeLink(angebot.freigabe_token),
   });
 
   const versand = await sendeEmail({

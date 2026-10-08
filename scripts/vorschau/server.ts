@@ -54,6 +54,12 @@ const ANGEBOTE = [
   notiz:"Angebot gültig 30 Tage. Ausführung ca. 5 Arbeitstage nach Materiallieferung.",
   pdf_path:null, gesendet_am:gesendet, entschieden_am:entschieden,
   nachgefasst_am:null, nachfassungen:0, created_at:tage(alter), updated_at:tage(alter),
+  // Freigabe-Schlüssel: fest und lesbar, damit der Rauchtest den Kundenlink
+  // ansteuern kann.
+  freigabe_token:`tok-${id}`,
+  freigabe_geoeffnet_am: id==="a4" ? tage(5) : null,
+  entschieden_durch: entschieden ? "kunde" : null,
+  kunden_anmerkung: id==="a3" ? "Passt, bitte im Mai anfangen." : null,
 }));
 const POSITIONEN = [
   ["Demontage alte Fliesen",8,"m2",28,false],["Fliesen verlegen 60x60",8,"m2",65,false],
@@ -178,7 +184,34 @@ class Abfrage {
 export function createClient(){ return {
   auth:{ getUser: async()=>({data:{user:USER},error:null}), signOut: async()=>({error:null}) },
   from:(t:string)=>new Abfrage(t),
-  rpc: async(n:string)=> n==="angebote_diesen_monat"?{data:6,error:null}:{data:null,error:null},
+  rpc: async(n:string, a:any={})=> {
+    if (n==="angebote_diesen_monat") return {data:6,error:null};
+    // Die öffentliche Angebotsfreigabe — in der echten App eine
+    // security-definer-Funktion in Postgres (0019_angebot_freigabe.sql).
+    const ang = ANGEBOTE.find((x:any)=> x.freigabe_token===a.p_token && x.status!=="entwurf");
+    if (n==="angebot_per_token") {
+      if (!ang) return {data:[],error:null};
+      const k = KUNDEN.find((x:any)=> x.id===ang.kunde_id);
+      return {data:[{ id:ang.id, nummer:ang.nummer, titel:ang.titel, status:ang.status,
+        datum:ang.datum, gueltig_bis:ang.gueltig_bis, netto:ang.netto, mwst_satz:ang.mwst_satz,
+        mwst_betrag:ang.mwst_betrag, brutto:ang.brutto, notiz:ang.notiz,
+        entschieden_am:ang.entschieden_am, entschieden_durch:ang.entschieden_durch,
+        kunden_anmerkung:ang.kunden_anmerkung, kunde_name:k?.name ?? null,
+        firma_name:PROFIL.firma_name, firma_strasse:PROFIL.strasse, firma_plz:PROFIL.plz,
+        firma_ort:PROFIL.ort, firma_telefon:PROFIL.telefon, firma_email:PROFIL.email,
+        firma_kleinunternehmer:PROFIL.kleinunternehmer }],error:null};
+    }
+    if (n==="angebot_positionen_per_token") {
+      if (!ang) return {data:[],error:null};
+      return {data:POSITIONEN.filter((p:any)=>p.angebot_id===ang.id),error:null};
+    }
+    if (n==="angebot_id_per_token") {
+      return {data: ang ? [{angebot_id:ang.id, besitzer:ang.user_id}] : [], error:null};
+    }
+    if (n==="angebot_geoeffnet") return {data:null,error:null};
+    if (n==="angebot_entscheiden") return {data:Boolean(ang && ang.status==="gesendet"),error:null};
+    return {data:null,error:null};
+  },
   storage:{ from:()=>({ createSignedUrl:async()=>({data:null,error:null}), download:async()=>({data:null,error:null}), upload:async()=>({data:null,error:null}), remove:async()=>({data:null,error:null}) }) },
 } as any; }
 export const createAdminClient = createClient;

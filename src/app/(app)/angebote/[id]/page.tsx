@@ -6,6 +6,7 @@ import { IconZurueck } from "@/components/ui/icons";
 import { emailVerfuegbar } from "@/lib/email/senden";
 import { createClient } from "@/lib/supabase/server";
 import type { Angebot, Kunde, Position } from "@/types/database";
+import { freigabeLink } from "./freigabe";
 
 export const metadata = { title: "Angebot · Baustift" };
 
@@ -51,6 +52,7 @@ export default async function AngebotPage({
         positionen={(positionen ?? []) as Position[]}
         kunden={(kunden ?? []) as Kunde[]}
         versandMoeglich={emailVerfuegbar()}
+        freigabeUrl={freigabeLink(angebot.freigabe_token)}
       />
     </div>
   );

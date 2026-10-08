@@ -18,6 +18,12 @@ const OEFFENTLICH = [
   // Impressum und Datenschutz müssen ohne Anmeldung erreichbar sein —
   // hinter einem Login erfüllen sie ihren Zweck nicht.
   "/rechtliches",
+  // Das Angebot beim Kunden. Der Kunde hat kein Konto und soll auch keines
+  // brauchen — er hat einen Link mit einem 192 Bit langen Schlüssel, und die
+  // Datenbank gibt darüber genau ein Angebot heraus (0019_angebot_freigabe).
+  // Ohne diese Ausnahme landet jeder Kunde auf der Anmeldung, und die
+  // Funktion gibt es praktisch nicht.
+  "/angebot",
   // Der Stripe-Webhook kommt von Stripe und hat naturgemäss keine Session.
   // Er weist sich stattdessen mit einer Signatur aus (siehe dort). Ohne
   // diese Ausnahme leitet die Middleware ihn auf /login um und jede

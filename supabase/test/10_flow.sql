@@ -703,3 +703,173 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 30–33  Kundenannahme per Link
+-- =========================================================================
+-- Ein öffentlicher Link ist eine Tür in die Datenbank. Geprüft wird deshalb
+-- nicht nur, dass die Annahme funktioniert, sondern vor allem, was durch
+-- diese Tür NICHT zu sehen ist.
+--
+-- Weiter oben wurde auf den zweiten Betrieb umgeschaltet; hier zählt wieder
+-- der erste.
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+set role app_user;
+
+do $$
+declare
+  v_angebot uuid;
+  v_token   text;
+  v_treffer int;
+begin
+  insert into public.angebote (user_id, kunde_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', null, 'AN-2026-0900',
+          'Freigabe-Test', 'entwurf', current_date, current_date + 30, 19)
+  returning id, freigabe_token into v_angebot, v_token;
+
+  insert into public.positionen (angebot_id, pos_nr, bezeichnung, menge, einheit, einzelpreis)
+  values (v_angebot, 1, 'Fliesen verlegen', 8, 'm2', 52.00);
+
+  if v_token is null or length(v_token) < 30 then
+    raise exception 'Freigabe-Schlüssel fehlt oder ist zu kurz: %', v_token;
+  end if;
+
+  -- Ein Entwurf ist nicht freigegeben, auch nicht über den Link.
+  select count(*) into v_treffer from public.angebot_per_token(v_token);
+  if v_treffer <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: Entwurf über den Link sichtbar';
+  end if;
+
+  update public.angebote set status = 'gesendet', gesendet_am = now() where id = v_angebot;
+
+  select count(*) into v_treffer from public.angebot_per_token(v_token);
+  if v_treffer <> 1 then
+    raise exception 'Verschicktes Angebot ist über den Link nicht zu sehen';
+  end if;
+
+  raise notice '30. Freigabe -> Entwurf bleibt zu, verschicktes Angebot ist sichtbar';
+end $$;
+
+reset role;
+
+-- Jetzt als nicht angemeldeter Besucher — genau das ist der Kunde.
+set role app_anon;
+
+do $$
+declare
+  v_treffer int;
+  v_tabelle text;
+begin
+  /*
+   * Der Besucher kennt nur den Link. An die Tabellen selbst kommt er nicht
+   * heran — entweder fehlt ihm schon das Recht darauf, oder RLS gibt ihm
+   * keine Zeile. Beides ist in Ordnung, und beides wird hier zugelassen:
+   * in dieser Testdatenbank fehlt das Recht, in Supabase greift RLS. Nicht
+   * in Ordnung wäre nur eine Zeile.
+   */
+  foreach v_tabelle in array array['angebote', 'positionen', 'preisliste', 'kunden', 'rechnungen']
+  loop
+    begin
+      execute format('select count(*) from public.%I', v_tabelle) into v_treffer;
+      if v_treffer <> 0 then
+        raise exception 'SICHERHEITSLÜCKE: Besucher ohne Anmeldung sieht % Zeilen in %', v_treffer, v_tabelle;
+      end if;
+    exception
+      when insufficient_privilege then
+        null; -- noch besser: er darf die Tabelle gar nicht erst ansehen.
+    end;
+  end loop;
+
+  raise notice '31. Freigabe -> ohne Anmeldung ist keine Tabelle lesbar';
+end $$;
+
+reset role;
+
+-- Den Schlüssel holt sich der Test als Betrieb, der Besucher bekommt ihn
+-- im Link — genau wie in Wirklichkeit.
+set role app_user;
+do $$
+declare v_token text;
+begin
+  select freigabe_token into v_token from public.angebote where nummer = 'AN-2026-0900';
+  perform set_config('test.token', v_token, false);
+end $$;
+reset role;
+
+set role app_anon;
+
+do $$
+declare
+  v_token  text := current_setting('test.token');
+  v_zeile  record;
+  v_anzahl int;
+  v_ok     boolean;
+begin
+  select * into v_zeile from public.angebot_per_token(v_token);
+  if v_zeile.nummer <> 'AN-2026-0900' then
+    raise exception 'Angebot über den Link nicht gefunden';
+  end if;
+  if v_zeile.firma_name is null then
+    raise exception 'Firmendaten fehlen auf der öffentlichen Seite';
+  end if;
+
+  select count(*) into v_anzahl from public.angebot_positionen_per_token(v_token);
+  if v_anzahl <> 1 then
+    raise exception 'Positionen über den Link: % statt 1', v_anzahl;
+  end if;
+
+  -- Ein falscher Schlüssel gibt nichts her.
+  select count(*) into v_anzahl from public.angebot_per_token('offensichtlich-falsch');
+  if v_anzahl <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: falscher Schlüssel liefert ein Angebot';
+  end if;
+
+  -- Öffnen wird einmal vermerkt.
+  perform public.angebot_geoeffnet(v_token);
+
+  -- Annehmen.
+  v_ok := public.angebot_entscheiden(v_token, 'angenommen', '  Bitte im Mai anfangen.  ');
+  if not v_ok then raise exception 'Annahme wurde nicht übernommen'; end if;
+
+  -- Ein zweites Mal geht nicht — auch nicht mit einer anderen Entscheidung.
+  v_ok := public.angebot_entscheiden(v_token, 'abgelehnt', 'doch nicht');
+  if v_ok then
+    raise exception 'SICHERHEITSLÜCKE: Entscheidung liess sich nachträglich ändern';
+  end if;
+
+  -- Und Unsinn als Entscheidung wird gar nicht erst angenommen.
+  v_ok := public.angebot_entscheiden(v_token, 'storniert', null);
+  if v_ok then raise exception 'Unbekannte Entscheidung wurde angenommen'; end if;
+
+  raise notice '32. Freigabe -> Kunde kann einmal entscheiden, danach steht es fest';
+end $$;
+
+reset role;
+
+set role app_user;
+
+do $$
+declare v record;
+begin
+  select * into v from public.angebote where nummer = 'AN-2026-0900';
+
+  if v.status::text <> 'angenommen' then
+    raise exception 'Status nach Kundenannahme: % statt angenommen', v.status;
+  end if;
+  if v.entschieden_durch <> 'kunde' then
+    raise exception 'Entscheidung nicht dem Kunden zugeschrieben: %', v.entschieden_durch;
+  end if;
+  if v.entschieden_am is null then
+    raise exception 'Zeitpunkt der Entscheidung fehlt';
+  end if;
+  if v.kunden_anmerkung <> 'Bitte im Mai anfangen.' then
+    raise exception 'Anmerkung nicht sauber übernommen: %', quote_literal(v.kunden_anmerkung);
+  end if;
+  if v.freigabe_geoeffnet_am is null then
+    raise exception 'Öffnen wurde nicht vermerkt';
+  end if;
+
+  raise notice '33. Freigabe -> Betrieb sieht Entscheidung, Anmerkung und wann geöffnet wurde';
+end $$;
+
+reset role;

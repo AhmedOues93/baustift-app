@@ -91,6 +91,10 @@ const angebot: Angebot = {
   nachfassungen: 0,
   eingabe_art: null,
   aufnahme_sekunden: null,
+  freigabe_token: "tok-test",
+  freigabe_geoeffnet_am: null,
+  entschieden_durch: null,
+  kunden_anmerkung: null,
   created_at: "",
   updated_at: "",
 };

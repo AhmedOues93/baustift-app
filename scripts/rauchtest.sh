@@ -158,12 +158,21 @@ pruefe() {
 echo "→ Seiten"
 for pfad in / /login /angebote /angebote/a1 /angebote/neu /rechnungen /rechnungen/r3 \
             /kunden /kunden/k1 /preisliste /aufmass /aufmass/auf1 /einstellungen /abo \
-            /rechtliches/impressum /rechtliches/datenschutz; do
+            /rechtliches/impressum /rechtliches/datenschutz \
+            /angebot/tok-a2 /angebot/tok-a3; do
   pruefe "$pfad" 200 "text/html"
 done
 
+# Der Kundenlink ist der einzige Weg in die Anwendung ohne Anmeldung.
+# Ein Entwurf darf dort nicht auftauchen, ein geratener Schlüssel auch nicht.
+pruefe /angebot/tok-a1 404 ""
+pruefe /angebot/einfach-geraten 404 ""
+
 echo "→ Routen"
 pruefe /api/angebote/a1/pdf 200 "application/pdf"
+# Dasselbe PDF über den Kundenlink — ohne Anmeldung.
+pruefe /angebot/tok-a2/pdf 200 "application/pdf"
+pruefe /angebot/tok-a1/pdf 404 ""
 pruefe /api/rechnungen/r3/pdf 200 "application/pdf"
 pruefe /api/rechnungen/r3/erechnung 200 "xml"
 pruefe /api/export/kunden 200 "csv"

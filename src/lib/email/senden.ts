@@ -70,6 +70,8 @@ export function angebotNachricht(args: {
   gueltigBis: string | null;
   ansprechpartner: string | null;
   telefon: string | null;
+  /** Der Link, über den der Kunde direkt zu- oder absagen kann. */
+  freigabeUrl?: string | null;
 }): { betreff: string; text: string } {
   const anrede = args.ansprechpartner
     ? `Guten Tag ${args.ansprechpartner},`
@@ -83,12 +85,25 @@ export function angebotNachricht(args: {
     ? `\n\nBei Rückfragen erreichen Sie uns unter ${args.telefon}.`
     : "\n\nBei Rückfragen melden Sie sich gern.";
 
+  /**
+   * Der Link zum Zu- oder Absagen.
+   *
+   * Er steht vor den Rückfragen und nicht am Ende: ein Kunde, der zusagen
+   * will, soll nicht erst durch den ganzen Text. Das PDF hängt trotzdem an —
+   * viele drucken es aus oder geben es weiter, und nicht jeder klickt auf
+   * Links in E-Mails.
+   */
+  const freigabe = args.freigabeUrl
+    ? `\n\nAnnehmen oder ablehnen können Sie direkt hier:\n${args.freigabeUrl}`
+    : "";
+
   return {
     betreff: `Angebot ${args.nummer}${args.titel ? ` — ${args.titel}` : ""}`,
     text:
       `${anrede}\n\n` +
       `anbei erhalten Sie unser Angebot${args.titel ? ` für ${args.titel}` : ""} als PDF.` +
       gueltig +
+      freigabe +
       rueckfragen +
       `\n\nMit freundlichen Grüssen\n${args.firmaName}`,
   };

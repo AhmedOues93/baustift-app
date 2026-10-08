@@ -68,12 +68,15 @@ export function AngebotEditor({
   positionen,
   kunden,
   versandMoeglich,
+  freigabeUrl,
 }: {
   angebot: Angebot;
   positionen: Position[];
   kunden: Kunde[];
   /** Ist der E-Mail-Versand überhaupt eingerichtet? */
   versandMoeglich: boolean;
+  /** Link, unter dem der Kunde das Angebot sieht und entscheidet. */
+  freigabeUrl: string;
 }) {
   const router = useRouter();
 
@@ -320,6 +323,36 @@ export function AngebotEditor({
         </p>
       ) : null}
 
+      {/* Was der Kunde gemacht hat ------------------------------------------
+          Die eine Information, die bisher fehlte: liegt das Angebot
+          ungelesen da, oder denkt er darüber nach? Und wenn er abgesagt
+          hat — warum? Ohne diesen Abschnitt wäre die Kundenfreigabe eine
+          Funktion, von der der Handwerker nichts mitbekommt. */}
+      {angebot.entschieden_durch === "kunde" ? (
+        <section
+          className={`rounded-karte p-4 ${
+            angebot.status === "angenommen"
+              ? "bg-erfolg-flaeche text-erfolg"
+              : "bg-warnung-flaeche text-warnung"
+          }`}
+        >
+          <p className="font-medium">
+            {angebot.status === "angenommen"
+              ? "Der Kunde hat zugesagt."
+              : "Der Kunde hat abgesagt."}
+            {angebot.entschieden_am ? ` ${formatDatum(angebot.entschieden_am)}` : ""}
+          </p>
+          {angebot.kunden_anmerkung ? (
+            <p className="mt-1 text-sm">„{angebot.kunden_anmerkung}“</p>
+          ) : null}
+        </section>
+      ) : angebot.status === "gesendet" && angebot.freigabe_geoeffnet_am ? (
+        <p className="rounded-feld bg-info-flaeche px-3 py-2.5 text-sm text-info">
+          Der Kunde hat das Angebot geöffnet —{" "}
+          {formatDatum(angebot.freigabe_geoeffnet_am)}. Entschieden hat er noch nicht.
+        </p>
+      ) : null}
+
       {/* Das Prüftor -------------------------------------------------------
           Solange hier etwas offen ist, geht das Angebot nicht raus — weder
           per E-Mail noch als "gesendet markiert" noch als Rechnung. Der
@@ -454,12 +487,18 @@ export function AngebotEditor({
           <IconPdf className="h-5 w-5" />
         </a>
 
-        {/* Teilen: der Weg, den die meisten wirklich gehen — WhatsApp. */}
+        {/* Teilen: der Weg, den die meisten wirklich gehen — WhatsApp.
+            Mitgeschickt wird der Link zum Zu- oder Absagen: wer das Angebot
+            über WhatsApp bekommt, soll genauso antworten können wie über
+            E-Mail. Sonst ruft er an, und niemand trägt es nach. */}
         <TeilenKnopf
           pfad={`/api/angebote/${angebot.id}/pdf`}
           dateiname={`${angebot.nummer}.pdf`}
           titel={`Angebot ${angebot.nummer}`}
-          text={`Guten Tag,\n\nanbei unser Angebot${titel ? ` für ${titel}` : ""}.`}
+          text={
+            `Guten Tag,\n\nanbei unser Angebot${titel ? ` für ${titel}` : ""}.` +
+            `\n\nAnnehmen oder ablehnen können Sie direkt hier:\n${freigabeUrl}`
+          }
         />
 
         {angebot.status === "entwurf" ? (

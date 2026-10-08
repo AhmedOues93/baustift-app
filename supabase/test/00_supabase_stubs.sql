@@ -31,9 +31,19 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
     create role authenticated;
   end if;
+  -- `anon` ist die Rolle für Aufrufe ohne Anmeldung. Die öffentliche
+  -- Angebotsfreigabe hängt daran: ohne diese Rolle lässt sich nicht
+  -- prüfen, was ein nicht angemeldeter Besucher darf.
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon;
+  end if;
 end $$;
 
 -- Rolle, die die App benutzt (kein Superuser -> RLS greift wirklich).
 create role app_user login;
 grant usage on schema public, auth, storage to app_user;
 grant authenticated to app_user;
+
+-- Zweiter Login-Account, der NUR anon ist — der öffentliche Besucher.
+create role app_anon login;
+grant anon to app_anon;
