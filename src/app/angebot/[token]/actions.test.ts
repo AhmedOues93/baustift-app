@@ -24,7 +24,28 @@ vi.mock("@/lib/supabase/server", () => ({
       return { data: antwort, error: null };
     },
   }),
+  createAdminClient: () => db.client,
 }));
+
+vi.mock("@/lib/env", () => ({
+  publicEnv: { siteUrl: "https://baustift.de" },
+}));
+
+/** Was tatsächlich verschickt würde. Es geht nichts raus. */
+let mails: { an: string; betreff: string; text: string }[];
+
+vi.mock("@/lib/email/senden", async () => {
+  const echt = await vi.importActual<typeof import("@/lib/email/senden")>(
+    "@/lib/email/senden",
+  );
+  return {
+    ...echt,
+    sendeEmail: async (args: { an: string; betreff: string; text: string }) => {
+      mails.push(args);
+      return {};
+    },
+  };
+});
 
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
@@ -37,9 +58,20 @@ async function entscheiden(felder: Record<string, string>) {
 
 beforeEach(() => {
   vi.resetModules();
-  db = fakeSupabase({});
+  db = fakeSupabase({
+    angebote: [
+      {
+        id: "a1", user_id: "u1", kunde_id: "k1", nummer: "AN-2026-0041",
+        titel: "Bad komplett", freigabe_token: "tok123",
+        kunden_anmerkung: "Bitte im Mai anfangen.",
+      },
+    ],
+    profiles: [{ id: "u1", email: "chef@betrieb.de", firma_name: "Schulz Sanitär" }],
+    kunden: [{ id: "k1", user_id: "u1", name: "Familie Becker" }],
+  });
   antwort = true;
   aufrufe = [];
+  mails = [];
 });
 
 describe("Zusage", () => {
@@ -113,5 +145,46 @@ describe("was die Seite nach aussen sagt", () => {
 
     expect(ergebnis.fehler).toContain("lässt sich nicht mehr entscheiden");
     expect(ergebnis.fehler).not.toMatch(/nicht gefunden|unbekannt|existiert/i);
+  });
+});
+
+describe("der Betrieb erfährt davon", () => {
+  it("schickt bei einer Zusage eine Nachricht mit Nummer und Kunde", async () => {
+    // Ohne diese Nachricht steht die Zusage in der App, und der Handwerker
+    // sitzt im Auto und schaut nicht hinein.
+    await entscheiden({ token: "tok123", entscheidung: "angenommen" });
+
+    expect(mails).toHaveLength(1);
+    expect(mails[0].an).toBe("chef@betrieb.de");
+    expect(mails[0].betreff).toContain("Zusage");
+    expect(mails[0].betreff).toContain("AN-2026-0041");
+    expect(mails[0].text).toContain("Familie Becker");
+    expect(mails[0].text).toContain("https://baustift.de/angebote/a1");
+  });
+
+  it("nimmt bei einer Absage den Grund mit", async () => {
+    await entscheiden({ token: "tok123", entscheidung: "abgelehnt" });
+
+    expect(mails[0].betreff).toContain("Absage");
+    expect(mails[0].text).toContain("Bitte im Mai anfangen.");
+  });
+
+  it("schickt nichts, wenn die Entscheidung gar nicht angekommen ist", async () => {
+    antwort = false;
+
+    await entscheiden({ token: "tok123", entscheidung: "angenommen" });
+
+    expect(mails).toHaveLength(0);
+  });
+
+  it("lässt die Entscheidung stehen, auch wenn die Nachricht scheitert", async () => {
+    // Die Entscheidung ist in der Datenbank. Ein Fehler beim Verschicken
+    // darf sie nicht zurücknehmen — der Kunde hat seinen Teil getan.
+    db.tabellen.profiles[0].email = null;
+
+    const ergebnis = await entscheiden({ token: "tok123", entscheidung: "angenommen" });
+
+    expect(ergebnis.erfolg).toBeTruthy();
+    expect(mails).toHaveLength(0);
   });
 });

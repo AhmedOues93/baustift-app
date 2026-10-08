@@ -258,3 +258,42 @@ function formatDatum(iso: string): string {
   const [jahr, monat, tag] = iso.slice(0, 10).split("-");
   return `${tag}.${monat}.${jahr}`;
 }
+
+/**
+ * Der Betrieb erfährt, dass der Kunde entschieden hat.
+ *
+ * Ohne diese Nachricht wäre die Kundenfreigabe eine halbe Funktion: die
+ * Zusage steht in der App, aber der Handwerker sitzt im Auto und schaut
+ * nicht hinein. Gerade die Zusage ist die Nachricht, auf die er wartet —
+ * und die Absage die, aus der er etwas lernt.
+ */
+export function entscheidungNachricht(args: {
+  nummer: string;
+  titel: string;
+  kundeName: string | null;
+  angenommen: boolean;
+  anmerkung: string | null;
+  link: string;
+}): { betreff: string; text: string } {
+  const wer = args.kundeName ?? "Der Kunde";
+  const was = args.titel ? ` (${args.titel})` : "";
+
+  const anmerkung = args.anmerkung
+    ? `\n\nDazugeschrieben hat er:\n„${args.anmerkung}“`
+    : "";
+
+  return {
+    betreff: args.angenommen
+      ? `Zusage: Angebot ${args.nummer}`
+      : `Absage: Angebot ${args.nummer}`,
+    text:
+      (args.angenommen
+        ? `${wer} hat Angebot ${args.nummer}${was} angenommen.`
+        : `${wer} hat Angebot ${args.nummer}${was} abgelehnt.`) +
+      anmerkung +
+      `\n\nIn Baustift ansehen:\n${args.link}` +
+      (args.angenommen
+        ? "\n\nDort kannst du daraus einen Auftrag oder direkt eine Rechnung machen."
+        : ""),
+  };
+}
