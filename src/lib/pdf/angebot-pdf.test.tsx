@@ -191,3 +191,82 @@ describe("Angebots-PDF", () => {
     expect(text).not.toContain("MwSt");
   });
 });
+
+/**
+ * =============================================================================
+ * Mehrseitige Angebote
+ * =============================================================================
+ * Ein Bad mit vierzig Positionen passt nicht auf eine Seite. Was auf Seite 2
+ * fehlt, fehlt im verbindlichen Dokument beim Kunden — und niemand prüft das,
+ * bevor er es abschickt.
+ */
+describe("über mehrere Seiten", () => {
+  const viele = Array.from({ length: 45 }, (_, i) =>
+    position(i + 1, `Leistung ${i + 1}`, 1, 100),
+  );
+
+  async function seitenUndText() {
+    const puffer = await renderToBuffer(
+      AngebotPdf({
+        angebot: { ...angebot, netto: 4500, mwst_betrag: 855, brutto: 5355 },
+        positionen: viele,
+        kunde,
+        firma,
+        logoDataUrl: null,
+      }) as never,
+    );
+    const parser = new PDFParse({ data: new Uint8Array(puffer) });
+    try {
+      const r = await parser.getText();
+      return { seiten: r.pages?.length ?? 0, text: r.text };
+    } finally {
+      await parser.destroy();
+    }
+  }
+
+  it("wiederholt den Tabellenkopf auf jeder Seite", async () => {
+    const { seiten, text } = await seitenUndText();
+
+    expect(seiten).toBeGreaterThan(1);
+    // Ohne den wiederholten Kopf stehen auf Seite 2 vier Spalten mit Zahlen,
+    // und der Kunde muss raten, welche der Einzelpreis ist.
+    expect(text.split("EINZELPREIS").length - 1).toBe(seiten);
+  });
+
+  it("zeigt die Pflichtangaben auf jeder Seite", async () => {
+    const { seiten, text } = await seitenUndText();
+    expect(text.split("St.-Nr.").length - 1).toBe(seiten);
+  });
+
+  it("nennt die Angebotsnummer auf jeder Seite", async () => {
+    const { seiten, text } = await seitenUndText();
+
+    // Damit einer einzelnen Seite anzusehen ist, wozu sie gehört — und ob
+    // eine fehlt.
+    expect(text.split("Angebot AN-2026-0041").length - 1).toBe(seiten);
+  });
+
+  it("bricht eine Position nicht über den Seitenrand", async () => {
+    const { text } = await seitenUndText();
+    // Jede der 45 Zeilen steht genau einmal vollständig da.
+    for (let i = 1; i <= 45; i++) {
+      expect(text, `Leistung ${i}`).toContain(`Leistung ${i} `);
+    }
+  });
+});
+
+describe("ohne zugeordneten Kunden", () => {
+  it("lässt das Anschriftenfeld leer, statt eine Meldung abzudrucken", async () => {
+    const puffer = await renderToBuffer(
+      AngebotPdf({ angebot, positionen: [position(1, "Fliesen", 1, 100)], kunde: null, firma, logoDataUrl: null }) as never,
+    );
+    const parser = new PDFParse({ data: new Uint8Array(puffer) });
+    const text = (await parser.getText()).text;
+    await parser.destroy();
+
+    // "— kein Kunde zugeordnet —" ist eine Meldung aus der Anwendung. Im
+    // Anschriftenfeld eines ausgedruckten Angebots hat sie nichts verloren.
+    expect(text).not.toContain("kein Kunde");
+    expect(text).toContain("AN-2026-0041");
+  });
+});
