@@ -10,14 +10,23 @@
 # danach. Woher jeder Wert kommt, steht in docs/betrieb/veroeffentlichen.md.
 #
 # Anwenden: Render → Blueprints → New Blueprint Instance → Repository wählen.
-# Ein bereits bestehender Dienst wird dabei NICHT ersetzt; Render gleicht ab.
+#
+# ACHTUNG bei einem bereits laufenden Dienst: ein Blueprint GLEICHT AB. Steht
+# hier etwas anderes als im Dashboard, gewinnt diese Datei. Die Region lässt
+# sich an einem bestehenden Dienst nicht ändern — passt sie nicht, bricht
+# Render ab, statt etwas kaputtzumachen. Wer unsicher ist, liest die Datei
+# als Dokumentation und trägt die Werte von Hand ein; sie ist auch dafür
+# geschrieben.
 # =============================================================================
 
 services:
   - type: web
     name: baustift
     runtime: node
-    plan: starter
+    # Kein `plan:` hier. Ein Blueprint gleicht einen bestehenden Dienst ab —
+    # stünde hier ein anderer Tarif als der eingestellte, würde das Anwenden
+    # die Abrechnung ändern. Der Tarif gehört ins Dashboard, wo man sieht,
+    # was er kostet.
     region: frankfurt # Datenbank steht in der EU; alles andere widerspricht der Datenschutzerklärung.
 
     buildCommand: npm ci && npm run build
