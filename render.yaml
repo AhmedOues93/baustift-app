@@ -1,0 +1,78 @@
+# =============================================================================
+# Render-Blueprint für Baustift
+# =============================================================================
+# Die Bereitstellung läuft auf Render. Diese Datei beschreibt den Dienst so,
+# wie er dort laufen soll — damit die Einstellungen nicht nur im Dashboard
+# existieren, wo sie niemand nachlesen kann und ein Versehen unbemerkt bleibt.
+#
+# ENTHÄLT KEINE GEHEIMNISSE. Alle Werte mit `sync: false` trägt der Besitzer
+# einmal im Render-Dashboard ein; Render fragt beim Anwenden des Blueprints
+# danach. Woher jeder Wert kommt, steht in docs/betrieb/veroeffentlichen.md.
+#
+# Anwenden: Render → Blueprints → New Blueprint Instance → Repository wählen.
+# Ein bereits bestehender Dienst wird dabei NICHT ersetzt; Render gleicht ab.
+# =============================================================================
+
+services:
+  - type: web
+    name: baustift
+    runtime: node
+    plan: starter
+    region: frankfurt # Datenbank steht in der EU; alles andere widerspricht der Datenschutzerklärung.
+
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+
+    # Render prüft hier regelmässig, ob die Instanz lebt. Ohne eigenen Pfad
+    # würde die Landingpage geprüft — die rendert viel und sagt wenig aus.
+    healthCheckPath: /api/healthz
+
+    # Nach einem fehlgeschlagenen Deploy bleibt die laufende Fassung online.
+    previewsEnabled: false
+
+    envVars:
+      # --- Von Render selbst gesetzt -----------------------------------------
+      - key: NODE_VERSION
+        value: "22"
+
+      # --- Muss zur BAUZEIT dastehen -----------------------------------------
+      # Aus dieser Adresse entstehen der Bestätigungslink der Registrierung,
+      # der Link zum Zurücksetzen des Passworts, die Rücksprungadresse von
+      # Stripe und der Kundenlink zum Angebot. Fehlt sie, bricht der Build
+      # absichtlich ab (src/lib/env.ts) — besser als stillschweigend auf
+      # localhost zu verlinken.
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://baustift.onrender.com
+
+      # Landen im Browser-Bundle, sind also öffentlich — aber trotzdem
+      # projektspezifisch und deshalb nicht hier eingetragen.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+
+      # --- Nur auf dem Server ------------------------------------------------
+      # Umgeht RLS vollständig. Darf nie ins Frontend.
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # --- Freiwillig --------------------------------------------------------
+      # Ohne diese beiden läuft alles weiter; der Versandknopf verschwindet,
+      # und das PDF wird heruntergeladen statt verschickt.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_ABSENDER
+        sync: false
+      # Ohne DSN schreibt die Anwendung nur ins eigene Log.
+      - key: SENTRY_DSN
+        sync: false

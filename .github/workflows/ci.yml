@@ -67,6 +67,28 @@ jobs:
           # in Produktion keine Bestätigungslinks auf localhost zeigen.
           NEXT_PUBLIC_SITE_URL: https://beispiel.baustift.de
 
+  # Die E-Rechnung gegen die offiziellen Regelwerke. Eigener Job, weil er
+  # Java braucht und rund eine Minute lädt. Alle fremden Bestandteile sind
+  # auf feste Stände genagelt (siehe scripts/erechnung-pruefen.sh) — sonst
+  # hinge das Ergebnis davon ab, welcher Tag gerade ist.
+  erechnung:
+    name: E-Rechnung gegen EN 16931
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: xmllint bereitstellen
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
+      - run: npm ci
+      - run: npm run erechnung
+
   # Eigener Job, weil er nochmal baut — dafür prüft er als Einziger die
   # gebaute Anwendung. Der Fehler, der die PDF-Ausgabe wochenlang lahmgelegt
   # hat, war in Vitest nicht sichtbar und hier sofort.

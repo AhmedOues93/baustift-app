@@ -105,7 +105,11 @@ async function anSentry(zeile: Record<string, unknown>): Promise<void> {
         level: zeile.schwere === "fehler" ? "error" : "warning",
         logger: "baustift",
         platform: "node",
-        environment: process.env.VERCEL_ENV ?? "development",
+        // Plattformneutral: Render setzt RENDER, Vercel VERCEL_ENV. Ohne
+        // beides entscheidet NODE_ENV. Vorher stand hier nur VERCEL_ENV —
+        // auf Render wäre damit jeder Produktionsfehler als
+        // "development" eingelaufen und in Sentry nicht gefiltert worden.
+        environment: umgebung(),
         message: `${zeile.vorgang}: ${zeile.fehler || "ohne Meldung"}`,
         extra: zeile,
       }),
@@ -116,4 +120,11 @@ async function anSentry(zeile: Record<string, unknown>): Promise<void> {
     // Wenn das Melden scheitert, ist das kein Grund, die eigentliche
     // Anfrage scheitern zu lassen.
   }
+}
+
+/** In welcher Umgebung läuft das hier? */
+function umgebung(): string {
+  if (process.env.VERCEL_ENV) return process.env.VERCEL_ENV;
+  if (process.env.RENDER) return process.env.NODE_ENV === "production" ? "production" : "preview";
+  return process.env.NODE_ENV ?? "development";
 }

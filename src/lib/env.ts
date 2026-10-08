@@ -57,7 +57,19 @@ export const publicEnv = {
     const gesetzt = process.env.NEXT_PUBLIC_SITE_URL?.trim();
     if (gesetzt) return gesetzt.replace(/\/+$/, "");
 
-    // Vercel kennt seine Adresse selbst — für Vorschau-Bereitstellungen reicht das.
+    /**
+     * Der Hoster kennt seine Adresse selbst.
+     *
+     * Render stellt `RENDER_EXTERNAL_URL` zur Verfügung (vollständig, mit
+     * Schema). Achtung: die Variable steht nur zur LAUFZEIT bereit, nicht
+     * beim Bauen — alles, was ins Browser-Bundle wandert, braucht deshalb
+     * weiterhin NEXT_PUBLIC_SITE_URL. Hier hilft sie trotzdem, weil die
+     * Bestätigungs- und Stripe-Links serverseitig entstehen.
+     */
+    const render = process.env.RENDER_EXTERNAL_URL?.trim();
+    if (render) return render.replace(/\/+$/, "");
+
+    // Vercel nennt nur den Hostnamen, ohne Schema.
     const vercel = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
     if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
 

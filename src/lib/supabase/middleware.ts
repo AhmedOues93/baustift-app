@@ -24,6 +24,10 @@ const OEFFENTLICH = [
   // Ohne diese Ausnahme landet jeder Kunde auf der Anmeldung, und die
   // Funktion gibt es praktisch nicht.
   "/angebot",
+  // Das Lebenszeichen für den Hoster. Render fragt es ohne Anmeldung ab;
+  // eine Weiterleitung auf /login wäre für Render eine gesunde Antwort —
+  // und eine tote Instanz bliebe im Verkehr.
+  "/api/healthz",
   // Der Stripe-Webhook kommt von Stripe und hat naturgemäss keine Session.
   // Er weist sich stattdessen mit einer Signatur aus (siehe dort). Ohne
   // diese Ausnahme leitet die Middleware ihn auf /login um und jede
