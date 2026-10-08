@@ -38,7 +38,7 @@ verbindliches Angebot gelangen.
 
 | Bereich | Technologie |
 | --- | --- |
-| Frontend | Next.js 14 (App Router), TypeScript, Tailwind |
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind |
 | Datenbank / Auth / Storage | Supabase (Postgres mit RLS) |
 | Transkription | Whisper (OpenAI) |
 | Extraktion | Claude (`claude-opus-5`) mit Structured Outputs |
@@ -56,8 +56,13 @@ npm run dev
 
 | Befehl | Zweck |
 | --- | --- |
-| `npm test` | Unit-Tests (Matching, Formate, Kontingent, CSV, PDF) |
-| `npm run test:db` | Schema, Trigger und RLS gegen echtes Postgres |
+| `npm test` | Unit-Tests (Matching, Formate, Beträge, Kontingent, CSV, PDF, Routen) |
+| `npm run test:db` | Schema, Trigger, RLS und Beträge gegen echtes Postgres |
+| `npm run test:rauch` | Die **gebaute** Anwendung: antworten alle Seiten und Routen? |
+| `npm run mobil` | Bedienbarkeit bei 390 px und 360 px, im echten Browser gemessen |
+| `npm run erechnung` | E-Rechnung gegen CII-Schema und EN-16931-Prüfer der EU-Kommission |
+| `npm run bereit` | Sind alle Einstellungen gesetzt und plausibel? |
+| `npm run bilder` | Bildschirmfotos für die Startseite neu aufnehmen |
 | `npm run typecheck` | TypeScript |
 | `npm run lint` | ESLint |
 | `npm run icons` | PWA-Icons neu erzeugen |
@@ -65,6 +70,18 @@ npm run dev
 `test:db` braucht ein erreichbares Postgres (`PGHOST`, `PGPORT`, `PGUSER`).
 Es baut die Supabase-Bausteine (`auth.users`, `auth.uid()`, `storage.*`)
 selbst nach — weder Docker noch eine Supabase-Instanz nötig.
+
+**Echte Prüfungen und Attrappen auseinanderhalten.** `npm test` benutzt eine
+Datenbank im Arbeitsspeicher (`src/test/fake-supabase.ts`) und Attrappen für
+Whisper, Claude, Stripe und den E-Mail-Versand — es prüft, was die Anwendung
+tun WILL. Was die Datenbank dann wirklich tut (Trigger, Summen, RLS,
+Unveränderlichkeit gestellter Rechnungen), prüft `test:db` gegen echtes
+Postgres; ob die gebaute Anwendung antwortet, prüft `test:rauch`; ob die
+E-Rechnung der Norm entspricht, entscheidet in `erechnung` der Prüfer der
+EU-Kommission und nicht unsere Meinung. `mobil` misst in einem echten
+Chromium. Die Aufteilung ist Absicht: ein grüner Unit-Test hat die
+PDF-Ausgabe schon einmal wochenlang für heil gehalten, während sie 500
+lieferte.
 
 ## Ordnerstruktur
 
