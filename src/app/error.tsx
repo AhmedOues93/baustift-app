@@ -43,6 +43,15 @@ export default function Fehlerseite({
         >
           Nochmal versuchen
         </button>
+        {/*
+          Bewusst ein <a> und kein <Link>: an dieser Stelle ist der React-Baum
+          im Browser kaputt. Eine Navigation über den Router bliebe darin
+          hängen — gerade dann, wenn der Knopf gebraucht wird. Ein echter
+          Seitenaufruf lädt alles neu und ist genau der Ausweg.
+          Der neuere Linter von Next möchte hier <Link> sehen; das wäre hier
+          die schlechtere Lösung.
+        */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/angebote"
           className="inline-flex min-h-12 items-center justify-center rounded-gross border border-linie bg-flaeche px-6 font-medium text-text transition-colors active:bg-papier"
