@@ -11,7 +11,7 @@ import {
 import { istNachfassFaellig } from "@/lib/angebot";
 import { angebotPdfErzeugen } from "@/lib/pdf/erzeugen";
 import { createClient } from "@/lib/supabase/server";
-import { offenePruefungen, pruefHinweis } from "./pruefung";
+import { offenePruefungen, versandSperre } from "./pruefung";
 import type { AngebotStatus, Einheit } from "@/types/database";
 
 /**
@@ -213,8 +213,8 @@ export async function statusSetzen(
   // WhatsApp, ausgedruckt oder sonstwie. Dieselbe Sperre wie beim
   // E-Mail-Versand, sonst führt der Umweg daran vorbei.
   if (status === "gesendet") {
-    const offen = await offenePruefungen(supabase, angebotId);
-    if (offen > 0) return { fehler: pruefHinweis(offen) };
+    const sperre = await versandSperre(supabase, angebotId);
+    if (sperre) return { fehler: sperre };
   }
 
   const jetzt = new Date().toISOString();
@@ -260,8 +260,8 @@ export async function angebotVersenden(
 
   // Vor dem Erzeugen des PDF: es hat keinen Sinn, Rechenzeit in ein Dokument
   // zu stecken, das ohnehin nicht rausgehen darf.
-  const offen = await offenePruefungen(supabase, angebotId);
-  if (offen > 0) return { fehler: pruefHinweis(offen) };
+  const sperre = await versandSperre(supabase, angebotId);
+  if (sperre) return { fehler: sperre };
 
   const ergebnis = await angebotPdfErzeugen(supabase, angebotId);
   if (ergebnis.fehler !== undefined) return { fehler: ergebnis.fehler };

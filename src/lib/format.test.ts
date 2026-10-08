@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatEuro, formatPreisEingabe, parsePreis } from "./format";
+import { formatEuro, formatPreisEingabe, parseMenge, parsePreis } from "./format";
 
 /**
  * Eingaben aus der Praxis. Ein falsch gelesener Preis fällt niemandem auf —
@@ -53,5 +53,32 @@ describe("formatPreisEingabe", () => {
   it("gibt den Wert so aus, wie er wieder eingelesen werden kann", () => {
     const wert = 1234.5;
     expect(parsePreis(formatPreisEingabe(wert))).toBe(wert);
+  });
+});
+
+describe("parseMenge", () => {
+  it("behält die dritte Nachkommastelle", () => {
+    // Aus dem Aufmass kommen Werte wie 1,005 m³. parsePreis hätte daraus
+    // stillschweigend 1,01 gemacht — ein gemessener Wert wird zum geratenen.
+    expect(parseMenge("1,005")).toBe(1.005);
+    expect(parseMenge("12,375")).toBe(12.375);
+    expect(parseMenge("0,125")).toBe(0.125);
+  });
+
+  it("rundet erst ab der vierten Stelle — so weit reicht das Schema", () => {
+    expect(parseMenge("1,0054")).toBe(1.005);
+    expect(parseMenge("1,0056")).toBe(1.006);
+  });
+
+  it("versteht dieselben Schreibweisen wie ein Preis", () => {
+    expect(parseMenge("8")).toBe(8);
+    expect(parseMenge("1.250")).toBe(1250);
+    expect(parseMenge("2.5")).toBe(2.5);
+  });
+
+  it("weist Unsinn und negative Mengen ab", () => {
+    expect(parseMenge("")).toBeNull();
+    expect(parseMenge("keine Ahnung")).toBeNull();
+    expect(parseMenge("-3")).toBeNull();
   });
 });

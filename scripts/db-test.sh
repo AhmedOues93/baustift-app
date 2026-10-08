@@ -36,4 +36,14 @@ done
 echo "→ Ablauf prüfen"
 "${PSQL[@]}" -d "$DB" -f supabase/test/10_flow.sql
 
-echo "✓ Schema, Trigger und RLS in Ordnung"
+# Rechnet der Browser wie die Datenbank? Die Fälle werden mit der echten
+# Anwendungslogik erzeugt und hier von Postgres nachgerechnet — ein reiner
+# Unit-Test könnte das nicht beantworten, weil er die Datenbank nicht fragt.
+echo "→ Beträge gegenrechnen"
+ABGLEICH="$(mktemp -t rechnen-XXXXXX.sql)"
+trap 'rm -f "$ABGLEICH"' EXIT
+node --experimental-strip-types scripts/rechnen-abgleich.mjs "$ABGLEICH" 2>/dev/null \
+  || node scripts/rechnen-abgleich.mjs "$ABGLEICH"
+"${PSQL[@]}" -d "$DB" -f "$ABGLEICH"
+
+echo "✓ Schema, Trigger, RLS und Beträge in Ordnung"

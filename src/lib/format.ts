@@ -40,6 +40,34 @@ export function parsePreis(eingabe: string): number | null {
   return Math.round(zahl * 100) / 100;
 }
 
+/**
+ * Eine Menge lesen — mit drei Nachkommastellen.
+ *
+ * `parsePreis` rundet auf zwei Stellen, weil Geld zwei hat. Mengen haben im
+ * Schema drei (`numeric(12,3)`), und das ist kein Zufall: aus dem Aufmass
+ * kommen Werte wie 1,005 m³ oder 12,375 m². Wurde so eine Position im
+ * Angebot auch nur angefasst, machte `parsePreis` stillschweigend 1,01
+ * daraus — aus einem gemessenen Wert wurde ein gerundeter, ohne dass es
+ * jemand sah.
+ */
+export function parseMenge(eingabe: string): number | null {
+  const preis = parsePreis(eingabe);
+  if (preis === null) return null;
+
+  // parsePreis hat schon normalisiert; hier wird nur die dritte Stelle
+  // zurückgeholt, die dort verloren ginge.
+  const roh = eingabe.trim().replace(/\s|€/g, "");
+  const normalisiert = roh.includes(",")
+    ? roh.replace(/\./g, "").replace(",", ".")
+    : /^\d{1,3}(\.\d{3})+$/.test(roh)
+      ? roh.replace(/\./g, "")
+      : roh;
+
+  const zahl = Number(normalisiert);
+  if (!Number.isFinite(zahl) || zahl < 0) return null;
+  return Math.round(zahl * 1000) / 1000;
+}
+
 const EURO = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",

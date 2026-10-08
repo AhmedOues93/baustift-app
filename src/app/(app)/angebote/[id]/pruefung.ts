@@ -38,3 +38,32 @@ export function pruefHinweis(anzahl: number): string {
     ? "Eine Position ist noch zu prüfen. Bestätige sie, bevor das Angebot rausgeht."
     : `${anzahl} Positionen sind noch zu prüfen. Bestätige sie, bevor das Angebot rausgeht.`;
 }
+
+/**
+ * Was hält dieses Angebot davon ab, aus dem Haus zu gehen?
+ *
+ * Gibt den Grund im Klartext zurück oder `null`, wenn nichts dagegenspricht.
+ * Zwei Gründe:
+ *
+ *  - Es ist noch etwas zu prüfen (siehe oben).
+ *  - Es steht gar nichts drin. Ein Angebot ohne Positionen ist ein PDF mit
+ *    einem Briefkopf und 0,00 € darunter. Das ging bisher raus: die
+ *    Prüfsperre zählte nur offene Positionen, und null offene Positionen
+ *    sind auch dann null, wenn es überhaupt keine gibt.
+ */
+export async function versandSperre(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  angebotId: string,
+): Promise<string | null> {
+  const { count: gesamt } = await supabase
+    .from("positionen")
+    .select("id", { count: "exact", head: true })
+    .eq("angebot_id", angebotId);
+
+  if ((gesamt ?? 0) === 0) {
+    return "Das Angebot hat noch keine Positionen. Trage ein, was du anbietest.";
+  }
+
+  const offen = await offenePruefungen(supabase, angebotId);
+  return offen > 0 ? pruefHinweis(offen) : null;
+}

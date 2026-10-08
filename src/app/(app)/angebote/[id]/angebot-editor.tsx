@@ -29,7 +29,8 @@ import {
 import { Sheet } from "@/components/ui/sheet";
 import { TeilenKnopf } from "@/components/ui/teilen";
 import { istNachfassFaellig, tageOhneAntwort } from "@/lib/angebot";
-import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
+import { formatEuro, formatPreisEingabe, parseMenge, parsePreis } from "@/lib/format";
+import { summen, zeilensumme } from "@/lib/rechnen";
 import {
   ANGEBOT_STATUS_LABEL,
   EINHEIT_LABEL,
@@ -105,12 +106,9 @@ export function AngebotEditor({
   // Beim ersten Rendern nicht speichern — sonst schreibt jedes Öffnen.
   const ersterLauf = useRef(true);
 
-  const netto = zeilen.reduce(
-    (summe, z) => summe + runde(z.menge * z.einzelpreis),
-    0,
-  );
-  const mwst = runde((netto * angebot.mwst_satz) / 100);
-  const brutto = runde(netto + mwst);
+  // Gerechnet wird wie in der Datenbank — sonst zeigt der Bildschirm
+  // einen anderen Betrag als das PDF beim Kunden. Siehe src/lib/rechnen.ts.
+  const { netto, mwst, brutto } = summen(zeilen, angebot.mwst_satz);
   const offeneFragen = zeilen.filter((z) => z.zu_pruefen).length;
 
   const speichern = useCallback(async () => {
@@ -642,7 +640,7 @@ function PositionsKarte({
           className="min-h-11 min-w-0 flex-1 rounded-feld border border-linie bg-flaeche px-3 text-base text-text placeholder:text-text-leise/60 focus:border-text focus:outline-none"
         />
         <span className="zahl shrink-0 whitespace-nowrap text-[15px] font-medium">
-          {formatEuro(runde(zeile.menge * zeile.einzelpreis))}
+          {formatEuro(zeilensumme(zeile.menge, zeile.einzelpreis))}
         </span>
       </div>
 
@@ -654,7 +652,9 @@ function PositionsKarte({
           value={mengeText}
           onChange={(e) => {
             setMengeText(e.target.value);
-            const wert = parsePreis(e.target.value);
+            // parseMenge, nicht parsePreis: aus dem Aufmass kommen drei
+            // Nachkommastellen, und die dürfen beim Anfassen nicht wegfallen.
+            const wert = parseMenge(e.target.value);
             if (wert !== null) onAendern({ menge: wert });
           }}
           onBlur={() => setMengeText(formatMenge(zeile.menge))}
@@ -742,10 +742,6 @@ function statusTon(status: AngebotStatus) {
     default:
       return "neutral" as const;
   }
-}
-
-function runde(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 /** 8 → "8", 2.5 → "2,5" — Mengen ohne unnötige Nullen. */

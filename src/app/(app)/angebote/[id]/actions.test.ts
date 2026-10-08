@@ -379,6 +379,31 @@ describe("Prüftor vor dem Versenden", () => {
     });
   }
 
+  it("versendet kein leeres Angebot", async () => {
+    // Null offene Positionen sind auch dann null, wenn es überhaupt keine
+    // gibt. Genau daran kam ein PDF mit Briefkopf und 0,00 € vorbei.
+    db.tabellen.positionen.length = 0;
+    post.verfuegbar = true;
+    Object.assign(db.tabellen.angebote[0], {
+      status: "entwurf", nummer: "AN-2026-0001", gueltig_bis: "2026-12-31",
+    });
+
+    const ergebnis = await angebotVersenden("a1");
+
+    expect(ergebnis.fehler).toContain("keine Positionen");
+    expect(post.gesendet).toHaveLength(0);
+  });
+
+  it("markiert ein leeres Angebot auch nicht als gesendet", async () => {
+    db.tabellen.positionen.length = 0;
+    Object.assign(db.tabellen.angebote[0], { status: "entwurf" });
+
+    const ergebnis = await statusSetzen("a1", "gesendet");
+
+    expect(ergebnis.fehler).toContain("keine Positionen");
+    expect(db.tabellen.angebote[0].status).toBe("entwurf");
+  });
+
   it("versendet kein Angebot mit ungeprüften Positionen", async () => {
     unsicher();
 
