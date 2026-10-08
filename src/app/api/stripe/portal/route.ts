@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { publicEnv } from "@/lib/env";
 import { stripe } from "@/lib/stripe/client";
+import { protokolliereFehler } from "@/lib/protokoll";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -28,10 +29,20 @@ export async function POST() {
     return NextResponse.json({ fehler: "Kein Abo vorhanden." }, { status: 400 });
   }
 
-  const sitzung = await stripe().billingPortal.sessions.create({
-    customer: profil.stripe_customer_id,
-    return_url: `${publicEnv.siteUrl}/einstellungen`,
-  });
+  try {
+    const sitzung = await stripe().billingPortal.sessions.create({
+      customer: profil.stripe_customer_id,
+      return_url: `${publicEnv.siteUrl}/einstellungen`,
+    });
 
-  return NextResponse.json({ url: sitzung.url });
+    return NextResponse.json({ url: sitzung.url });
+  } catch (fehler) {
+    // Ohne diesen Zweig wirft die Route durch, und wer sein Abo kündigen
+    // will, sieht eine leere Seite — der denkbar schlechteste Moment dafür.
+    protokolliereFehler({ vorgang: "stripe.portal", userId: user.id }, fehler);
+    return NextResponse.json(
+      { fehler: "Das Kundenportal ist gerade nicht erreichbar. Bitte später nochmal." },
+      { status: 502 },
+    );
+  }
 }
