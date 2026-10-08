@@ -54,6 +54,23 @@ const faelle: Record<string, () => string> = {
       kunde,
       firma: { ...firma, kleinunternehmer: true, ust_id: null },
     }),
+  // Aufmass: Menge mit drei Nachkommastellen, wie sie beim Messen entsteht.
+  aufmass: () =>
+    rechnungEn16931Xml({
+      rechnung: { ...rechnung, netto: 58.59, mwst_betrag: 11.13, brutto: 69.72 },
+      positionen: [
+        {
+          ...positionen[0],
+          bezeichnung: "Beton C25/30 einbringen",
+          menge: 1.125,
+          einheit: "m3",
+          einzelpreis: 52.08,
+          gesamtpreis: 58.59,
+        },
+      ],
+      kunde,
+      firma,
+    }),
   // Storno: laut Norm eine Gutschrift (381) mit positiven Betraegen.
   storno: () =>
     rechnungEn16931Xml({

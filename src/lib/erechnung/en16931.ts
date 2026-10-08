@@ -19,6 +19,22 @@ function zahl(n: number): string {
   return Number(n || 0).toFixed(2);
 }
 
+/**
+ * Mengen haben drei Nachkommastellen, Beträge zwei.
+ *
+ * Hier stand `zahl()` — aus 1,125 m³ Beton wurde in der E-Rechnung also
+ * 1,13 m³, während im PDF 1,125 stand. Die Datei behauptete damit
+ * 1,13 × 52,08 € = 58,59 €, und das geht nicht auf. Die Buchhaltung des
+ * Kunden bekommt eine Rechnung, die sich selbst widerspricht, und im PDF
+ * steht eine andere Menge als in der maschinenlesbaren Fassung.
+ *
+ * Aus dem Aufmass kommen genau solche Mengen; das Schema führt sie als
+ * `numeric(12,3)`. Die Norm lässt bis zu vier Nachkommastellen zu.
+ */
+function menge(n: number): string {
+  return Number(n || 0).toFixed(3);
+}
+
 function einheit(e: string): string {
   const codes: Record<string, string> = {
     stk: "C62", m: "MTR", m2: "MTK", m3: "MTQ", h: "HUR",
@@ -115,7 +131,7 @@ export function rechnungEn16931Xml(args: {
       <ram:AssociatedDocumentLineDocument><ram:LineID>${i + 1}</ram:LineID></ram:AssociatedDocumentLineDocument>
       <ram:SpecifiedTradeProduct><ram:Name>${xml(p.bezeichnung)}</ram:Name>${p.beschreibung ? `<ram:Description>${xml(p.beschreibung)}</ram:Description>` : ""}</ram:SpecifiedTradeProduct>
       <ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${betrag(p.einzelpreis)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement>
-      <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="${einheit(p.einheit)}">${zahl(p.menge)}</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
+      <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="${einheit(p.einheit)}">${menge(p.menge)}</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
       <ram:SpecifiedLineTradeSettlement>
         <ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${steuerKategorie}</ram:CategoryCode><ram:RateApplicablePercent>${zahl(r.mwst_satz)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
         <ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${betrag(p.gesamtpreis)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation>

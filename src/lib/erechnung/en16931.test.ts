@@ -175,3 +175,29 @@ describe("Unvollständige Daten", () => {
     ).toThrow(/unvollstaendig/i);
   });
 });
+
+describe("Mengen", () => {
+  it("führt drei Nachkommastellen, nicht zwei", () => {
+    // Aus dem Aufmass kommt 1,125 m³ Beton. Mit zwei Stellen stand in der
+    // Datei 1,13 m³ × 52,08 € = 58,59 € — das geht nicht auf, und im PDF
+    // stand eine andere Menge als in der maschinenlesbaren Fassung.
+    const xml = xmlFuer({}, [
+      {
+        ...positionen[0],
+        bezeichnung: "Beton C25/30",
+        menge: 1.125,
+        einheit: "m3",
+        einzelpreis: 52.08,
+        gesamtpreis: 58.59,
+      },
+    ]);
+
+    expect(xml).toContain(">1.125</ram:BilledQuantity>");
+    expect(xml).not.toContain(">1.13</ram:BilledQuantity>");
+  });
+
+  it("schreibt auch glatte Mengen mit drei Stellen", () => {
+    const xml = xmlFuer();
+    expect(xml).toContain(">1.000</ram:BilledQuantity>");
+  });
+});
