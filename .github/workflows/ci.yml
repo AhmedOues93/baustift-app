@@ -39,6 +39,15 @@ jobs:
 
       - run: npm ci
 
+      - name: Sicherheitslücken in den Abhängigkeiten
+        # Nur was wirklich ausgeliefert wird. Die Entwicklungswerkzeuge
+        # (Tailwind 3, ESLint) schleppen Meldungen zu Glob-Bibliotheken mit,
+        # die beim Bauen laufen und keine Nutzereingabe sehen; sie liessen
+        # sich nur mit einem Tailwind-4-Umstieg beheben. Was beim Nutzer
+        # ankommt, muss dagegen sauber sein — und bleibt es nur, wenn es
+        # jemand prüft.
+        run: npm audit --omit=dev --audit-level=moderate
+
       - name: Lint
         run: npm run lint
 

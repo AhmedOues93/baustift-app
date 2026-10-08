@@ -42,15 +42,18 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.35",
+    "eslint-config-next": "^15.5.27",
     "pdf-parse": "^2.4.5",
     "playwright-core": "^1.63.0",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.3",
     "vitest": "^5.0.1"
   },
   "engines": {
     "node": ">=22 <23"
+  },
+  "overrides": {
+    "postcss": "$postcss"
   }
 }

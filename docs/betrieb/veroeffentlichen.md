@@ -110,6 +110,20 @@ Drei Stufen, die man nicht verwechseln sollte:
 Dazu `npm run typecheck` und `npm run lint`. Alles zusammen läuft in CI
 (`.github/workflows/ci.yml`) bei jedem Push.
 
+### Sicherheitslücken in den Abhängigkeiten
+
+`npm audit --omit=dev` muss **0** melden — das läuft in CI mit und bricht
+den Lauf ab, sobald etwas auftaucht, das beim Nutzer ankommt.
+
+`npm audit` ohne den Schalter meldet weiterhin neun Funde. Alle stecken im
+Entwicklungswerkzeug: Tailwind 3 und ESLint bringen ältere
+Glob-Bibliotheken mit (`micromatch`, `braces`, `fast-glob`). Die laufen
+beim Bauen, sehen keine Nutzereingabe und werden nicht ausgeliefert.
+Beheben liesse sich das nur mit einem Umstieg auf Tailwind 4 — anderes
+Konfigurationsformat, und damit ein echtes Risiko für das Aussehen aller
+Bildschirme. Das ist eine bewusste Entscheidung und kein übersehener
+Punkt; sie gehört beim nächsten grösseren Aufräumen erledigt.
+
 ### Stände der E-Rechnungs-Prüfung
 
 `npm run erechnung` lädt fremde Regelwerke — **auf feste Stände genagelt**,
