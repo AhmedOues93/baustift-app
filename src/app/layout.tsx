@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import localFont from "next/font/local";
 
 import { publicEnv } from "@/lib/env";
 
@@ -7,31 +7,48 @@ import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
 /**
- * Schriften über next/font: werden zur Bauzeit heruntergeladen und selbst
- * ausgeliefert. Kein Request zu Google zur Laufzeit (schneller und ohne
- * DSGVO-Diskussion), und kein Textsprung beim Laden dank `display: swap`.
+ * Schriften aus dem eigenen Paket, nicht von Google.
  *
- * Die Variablen landen unten auf <html> und werden in globals.css und
- * tailwind.config.ts benutzt.
+ * Vorher lief das über `next/font/google`. Das lädt die Dateien zur Bauzeit
+ * von fonts.gstatic.com herunter — und genau daran ist der Build in dieser
+ * Sitzung zweimal gescheitert, ohne dass sich am Code etwas geändert hätte.
+ * Beim Hoster wäre das ein abgebrochener Deploy aus einem Grund, der nichts
+ * mit der Anwendung zu tun hat.
+ *
+ * Jetzt kommen die Dateien aus den @fontsource-Paketen. Die stehen in
+ * package-lock.json mit Prüfsumme: derselbe Build ergibt dieselben
+ * Schriften, und beim Bauen geht keine Anfrage mehr nach draussen.
+ *
+ * Ausgeliefert wurden sie schon vorher selbst — zur Laufzeit fragt also
+ * nach wie vor niemand bei Google an, was die Datenschutzerklärung so
+ * beschreibt. `display: swap` verhindert den Textsprung beim Laden.
  */
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["700", "800"],
+const archivo = localFont({
+  src: [
+    { path: "../../node_modules/@fontsource/archivo/files/archivo-latin-700-normal.woff2", weight: "700", style: "normal" },
+    { path: "../../node_modules/@fontsource/archivo/files/archivo-latin-800-normal.woff2", weight: "800", style: "normal" },
+  ],
   variable: "--schrift-titel",
   display: "swap",
 });
 
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const plexSans = localFont({
+  src: [
+    { path: "../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--schrift-text",
   display: "swap",
 });
 
 /** Nur für Zahlen: Preise, Summen, Mengen, Angebotsnummern. */
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const plexMono = localFont({
+  src: [
+    { path: "../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--schrift-zahl",
   display: "swap",
 });
