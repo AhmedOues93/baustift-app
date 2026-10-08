@@ -36,7 +36,8 @@ export function ImportFormular({ onSchliessen }: { onSchliessen: () => void }) {
           </pre>
           <p className="mt-2">
             Semikolon oder Komma als Trenner, beides geht. Einheiten wie „qm“,
-            „Std.“ oder „psch“ werden erkannt.
+            „Std.“ oder „psch“ werden erkannt. Umlaute aus Excel ebenso —
+            die Datei muss nicht vorher umgespeichert werden.
           </p>
         </div>
 
@@ -47,7 +48,7 @@ export function ImportFormular({ onSchliessen }: { onSchliessen: () => void }) {
           accept=".csv,text/csv"
           required
           className="file:mr-3 file:rounded-full file:border-0 file:bg-papier file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-text"
-          hinweis="Vorhandene Preise bleiben erhalten — es wird ergänzt, nicht ersetzt."
+          hinweis="Vorhandene Preise bleiben erhalten. Was schon in der Liste steht, wird nicht doppelt angelegt."
         />
 
         {state.fehler ? <Meldung art="fehler">{state.fehler}</Meldung> : null}

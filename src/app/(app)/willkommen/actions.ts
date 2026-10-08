@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { parsePreis } from "@/lib/format";
 import { ibanFormatieren, ibanGueltig } from "@/lib/bank";
-import { parseCsv } from "@/lib/preisliste-import";
+import { parseCsv, textAusBytes } from "@/lib/preisliste-import";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -80,7 +80,8 @@ export async function einrichtungAbschliessen(
   // scheitern lassen, sonst steht der Nutzer ohne Profil da.
   const datei = formData.get("preise");
   if (datei instanceof File && datei.size > 0 && datei.size < 2 * 1024 * 1024) {
-    const { zeilen } = parseCsv(await datei.text());
+    // Rohbytes: Excel schreibt CSV unter Windows selten in UTF-8.
+    const { zeilen } = parseCsv(textAusBytes(await datei.arrayBuffer()));
     if (zeilen.length > 0) {
       await supabase
         .from("preisliste")
