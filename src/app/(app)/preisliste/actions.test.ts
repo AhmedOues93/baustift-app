@@ -115,6 +115,67 @@ describe("preislisteImportieren", () => {
     expect(db.tabellen.preisliste).toHaveLength(0);
   });
 
+  it("legt dieselbe Datei kein zweites Mal an", async () => {
+    // Wer nach einem abgebrochenen Versuch nochmal auf „Importieren“
+    // drückt, hatte sonst alles doppelt in der Liste.
+    const csv = "Bezeichnung;Einheit;Preis\nFliesen verlegen;qm;52,00\nMonteurstunde;Std.;62,00\n";
+
+    await preislisteImportieren({}, csvFormular(csv));
+    expect(db.tabellen.preisliste).toHaveLength(2);
+
+    const zweiter = await preislisteImportieren({}, csvFormular(csv));
+
+    expect(db.tabellen.preisliste).toHaveLength(2);
+    expect(zweiter.fehler).toContain("stehen schon");
+  });
+
+  it("ergänzt nur das Neue, wenn die Datei gewachsen ist", async () => {
+    await preislisteImportieren(
+      {},
+      csvFormular("Bezeichnung;Einheit;Preis\nFliesen verlegen;qm;52,00\n"),
+    );
+
+    const ergebnis = await preislisteImportieren(
+      {},
+      csvFormular("Bezeichnung;Einheit;Preis\nFliesen verlegen;qm;52,00\nWC tauschen;stk;380,00\n"),
+    );
+
+    expect(db.tabellen.preisliste).toHaveLength(2);
+    expect(ergebnis.erfolg).toContain("1 Preis importiert");
+    expect(ergebnis.erfolg).toContain("schon vorhanden");
+  });
+
+  it("liest eine Datei aus Excel unter Windows richtig ein", async () => {
+    const fd = new FormData();
+    const bytes = Buffer.from("Bezeichnung;Preis\nStück Rohr;9,90\n", "latin1");
+    fd.set("datei", new File([bytes], "preise.csv", { type: "text/csv" }));
+
+    await preislisteImportieren({}, fd);
+
+    // Vorher stand hier "St?ck Rohr" — und zwar bis ins Angebot beim Kunden.
+    expect(db.tabellen.preisliste[0].bezeichnung).toBe("Stück Rohr");
+  });
+
+  it("weist auf eine geratene Einheit hin, statt sie zu verschweigen", async () => {
+    const ergebnis = await preislisteImportieren(
+      {},
+      csvFormular("Bezeichnung;Preis;Einheit\nFliesen;52;Quadratmter\n"),
+    );
+
+    expect(ergebnis.erfolg).toContain("Quadratmter");
+    expect(db.tabellen.preisliste[0].einheit).toBe("stk");
+  });
+
+  it("behält einen mehrzeiligen Langtext", async () => {
+    await preislisteImportieren(
+      {},
+      csvFormular('Bezeichnung;Preis;Beschreibung\n"Fliesen";48,00;"Zeile eins\nZeile zwei"\n'),
+    );
+
+    expect(db.tabellen.preisliste).toHaveLength(1);
+    expect(db.tabellen.preisliste[0].beschreibung).toBe("Zeile eins\nZeile zwei");
+  });
+
   it("lehnt eine zu grosse Datei ab", async () => {
     const fd = new FormData();
     fd.set("datei", new File([new Uint8Array(3 * 1024 * 1024)], "gross.csv", { type: "text/csv" }));

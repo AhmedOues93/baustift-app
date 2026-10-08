@@ -67,6 +67,11 @@ export async function rechnungAusAngebot(angebotId: string): Promise<void> {
   const ungeprueft = (positionen ?? []).filter((p) => p.zu_pruefen).length;
   if (ungeprueft > 0) redirect(`/angebote/${angebotId}?pruefen=1`);
 
+  // Und ein Angebot ohne Positionen ergibt eine Rechnung über 0,00 € mit
+  // einer verbrauchten Rechnungsnummer — die Nummer ist dann weg, denn der
+  // Kreis ist fortlaufend und lückenlos zu führen.
+  if ((positionen ?? []).length === 0) redirect(`/angebote/${angebotId}?pruefen=1`);
+
   const { data: nummer } = await supabase.rpc("next_rechnung_nummer", {
     p_user_id: user.id,
   });

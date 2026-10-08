@@ -174,6 +174,28 @@ describe("Eingabe", () => {
     expect(kiAufrufe).toEqual([]);
   });
 
+  it("wirft erfundene Untertitel weg, statt daraus ein Angebot zu bauen", async () => {
+    // Whisper gibt bei Stille die YouTube-Abspänne aus, auf denen es
+    // trainiert wurde. Die sind lang genug für die Längenprüfung — und die
+    // KI baut daraus ein Angebot, das niemand gesprochen hat.
+    const antwort = await post({ text: "Untertitel von Stephanie Geiger" });
+    const rumpf = await antwort.json();
+
+    expect(antwort.status).toBe(400);
+    expect(rumpf.fehler).toContain("zu wenig");
+    expect(kiAufrufe).toEqual([]);
+    expect(db.tabellen.angebote).toHaveLength(0);
+  });
+
+  it("lässt ein Diktat durch, das zufällig mit einer Floskel endet", async () => {
+    const antwort = await post({
+      text: "Heizkörper tauschen, vier Stück, inklusive Entsorgung. Vielen Dank.",
+    });
+
+    expect(antwort.status).toBe(200);
+    expect(kiAufrufe).toContain("claude");
+  });
+
   it("lehnt eine zu grosse Aufnahme ab, ohne sie zu übertragen", async () => {
     const zuGross = new File([new Uint8Array(26 * 1024 * 1024)], "a.webm", { type: "audio/webm" });
 

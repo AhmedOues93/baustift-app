@@ -15,9 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Meldung, Plakette } from "@/components/ui/field";
 import { IconKreuz, IconPdf, IconPlus, IconSenden } from "@/components/ui/icons";
-import { formatEuro, formatPreisEingabe, parsePreis } from "@/lib/format";
+import { formatEuro, formatPreisEingabe, parseMenge, parsePreis } from "@/lib/format";
 import { TeilenKnopf } from "@/components/ui/teilen";
 import { rechnungUeberfaellig, tageUeberfaellig } from "@/lib/rechnung";
+import { summen, zeilensumme } from "@/lib/rechnen";
 import {
   EINHEIT_LABEL,
   RECHNUNG_STATUS_LABEL,
@@ -80,9 +81,9 @@ export function RechnungEditor({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ersterLauf = useRef(true);
 
-  const netto = zeilen.reduce((s, z) => s + runde(z.menge * z.einzelpreis), 0);
-  const mwst = runde((netto * rechnung.mwst_satz) / 100);
-  const brutto = runde(netto + mwst);
+  // Gerechnet wird wie in der Datenbank — sonst zeigt der Bildschirm
+  // einen anderen Betrag als das PDF beim Kunden. Siehe src/lib/rechnen.ts.
+  const { netto, mwst, brutto } = summen(zeilen, rechnung.mwst_satz);
 
   const speichern = useCallback(async () => {
     if (gestellt) return;
@@ -368,7 +369,7 @@ export function RechnungEditor({
                 <span className="zahl w-4 shrink-0 text-sm text-text-leise">{i + 1}</span>
                 <span className="flex-1 font-medium">{z.bezeichnung}</span>
                 <span className="zahl shrink-0 text-[15px] font-medium">
-                  {formatEuro(runde(z.menge * z.einzelpreis))}
+                  {formatEuro(zeilensumme(z.menge, z.einzelpreis))}
                 </span>
               </div>
               <p className="zahl mt-1 pl-7 text-sm text-text-leise">
@@ -536,7 +537,7 @@ function PositionsKarte({
           className="min-h-11 min-w-0 flex-1 rounded-feld border border-linie bg-flaeche px-3 text-base text-text placeholder:text-text-leise/60 focus:border-text focus:outline-none"
         />
         <span className="zahl shrink-0 whitespace-nowrap text-[15px] font-medium">
-          {formatEuro(runde(zeile.menge * zeile.einzelpreis))}
+          {formatEuro(zeilensumme(zeile.menge, zeile.einzelpreis))}
         </span>
       </div>
 
@@ -545,7 +546,8 @@ function PositionsKarte({
           value={mengeText}
           onChange={(e) => {
             setMengeText(e.target.value);
-            const wert = parsePreis(e.target.value);
+            // Drei Nachkommastellen behalten — siehe parseMenge.
+            const wert = parseMenge(e.target.value);
             if (wert !== null) onAendern({ menge: wert });
           }}
           onBlur={() => setMengeText(formatMenge(zeile.menge))}
@@ -593,10 +595,6 @@ function PositionsKarte({
       </div>
     </article>
   );
-}
-
-function runde(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 function formatMenge(n: number): string {

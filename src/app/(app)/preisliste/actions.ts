@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { parsePreis } from "@/lib/format";
-import { parseCsv } from "@/lib/preisliste-import";
+import { parseCsv, schluessel, textAusBytes } from "@/lib/preisliste-import";
 import { createClient } from "@/lib/supabase/server";
 import type { Einheit } from "@/types/database";
 
@@ -144,7 +144,11 @@ export async function preislisteImportieren(
   } = await supabase.auth.getUser();
   if (!user) return { fehler: "Bitte neu anmelden." };
 
-  const { zeilen, fehler } = parseCsv(await datei.text());
+  // Rohbytes statt `datei.text()`: Excel speichert CSV unter Windows meist
+  // nicht als UTF-8, und dann steht später „St?ck Fliesen“ im Angebot.
+  const { zeilen, fehler, warnungen } = parseCsv(
+    textAusBytes(await datei.arrayBuffer()),
+  );
 
   if (zeilen.length === 0) {
     return {
@@ -152,22 +156,58 @@ export async function preislisteImportieren(
     };
   }
 
+  /**
+   * Gegen den vorhandenen Katalog abgleichen.
+   *
+   * Der Import bleibt additiv — aber zweimal dieselbe Datei einzulesen soll
+   * die Liste nicht verdoppeln. Wer nach einem abgebrochenen Versuch noch
+   * einmal auf „Importieren“ drückt, tut das nämlich genau so.
+   */
+  const { data: vorhanden } = await supabase
+    .from("preisliste")
+    .select("bezeichnung, einheit")
+    .eq("user_id", user.id);
+
+  const bekannt = new Set(
+    (vorhanden ?? []).map((v) => schluessel(v as { bezeichnung: string; einheit: Einheit })),
+  );
+  const neue = zeilen.filter((z) => !bekannt.has(schluessel(z)));
+  const doppelt = zeilen.length - neue.length;
+
+  if (neue.length === 0) {
+    return {
+      fehler: `Alle ${zeilen.length} Zeilen stehen schon in deiner Preisliste. Es wurde nichts geändert.`,
+    };
+  }
+
   const { error } = await supabase.from("preisliste").insert(
-    zeilen.map((z) => ({ ...z, user_id: user.id, aktiv: true })),
+    neue.map((z) => ({ ...z, user_id: user.id, aktiv: true })),
   );
 
   if (error) return { fehler: "Der Import ist fehlgeschlagen. Bitte nochmal." };
 
   revalidatePath("/preisliste");
 
-  const uebersprungen =
-    fehler.length > 0
-      ? ` ${fehler.length} ${fehler.length === 1 ? "Zeile wurde" : "Zeilen wurden"} übersprungen.`
-      : "";
+  const teile = [
+    `${neue.length} ${neue.length === 1 ? "Preis" : "Preise"} importiert.`,
+  ];
+  if (doppelt > 0) {
+    teile.push(
+      `${doppelt} ${doppelt === 1 ? "Eintrag war" : "Einträge waren"} schon vorhanden.`,
+    );
+  }
+  if (fehler.length > 0) {
+    teile.push(
+      `${fehler.length} ${fehler.length === 1 ? "Zeile wurde" : "Zeilen wurden"} übersprungen: ${fehler[0].grund}`,
+    );
+  }
+  if (warnungen.length > 0) {
+    teile.push(
+      `${warnungen.length} ${warnungen.length === 1 ? "Zeile braucht" : "Zeilen brauchen"} einen Blick: ${warnungen[0].grund}`,
+    );
+  }
 
-  return {
-    erfolg: `${zeilen.length} ${zeilen.length === 1 ? "Preis" : "Preise"} importiert.${uebersprungen}`,
-  };
+  return { erfolg: teile.join(" ") };
 }
 
 export async function preisLoeschen(formData: FormData): Promise<void> {

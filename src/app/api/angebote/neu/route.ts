@@ -10,6 +10,7 @@ import {
   transkribiere,
 } from "@/lib/ai/transcribe";
 import { darfAngebotErstellen } from "@/lib/abo";
+import { istStille } from "@/lib/aufnahme";
 import { protokolliereFehler, protokolliereWarnung } from "@/lib/protokoll";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { PreislisteEintrag } from "@/types/database";
@@ -161,7 +162,16 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
     }
   }
 
-  if (transkript.length < 10) {
+  /**
+   * Zu wenig gehört — oder in Wahrheit gar nichts.
+   *
+   * Whisper gibt bei Stille die Abspänne aus, auf denen es trainiert wurde
+   * ("Untertitel von …", "Vielen Dank."). Das ist lang genug, um die
+   * Längenprüfung zu bestehen, und die KI baut daraus ein Angebot, das
+   * niemand gesprochen hat. Beides führt zur selben Meldung, weil es für
+   * den Handwerker dieselbe Lage ist: es kam nichts an.
+   */
+  if (transkript.length < 10 || istStille(transkript)) {
     return NextResponse.json(
       {
         fehler:
