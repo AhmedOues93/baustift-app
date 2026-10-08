@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { aufnahmeBrauchbar } from "@/lib/aufnahme";
+
 /**
  * Kurze Sprachaufnahme, ein Antippen lang.
  *
@@ -81,6 +83,16 @@ export function useAufnahme(opts: {
       recorder.onstop = async () => {
         const audio = new Blob(teileRef.current, { type: recorder.mimeType });
         aufraeumen();
+
+        // Leere Aufnahme (Mikrofon stumm, Audiohardware belegt): gar nicht
+        // erst senden. Beim Aufmass passiert das reihenweise hintereinander,
+        // und jede dieser Anfragen kostet.
+        if (!aufnahmeBrauchbar(audio.size)) {
+          setFehler("Es ist nichts angekommen. Nochmal antippen — oder eintippen.");
+          setZustand("bereit");
+          return;
+        }
+
         try {
           await fertigRef.current(audio);
         } finally {
@@ -111,10 +123,11 @@ export function useAufnahme(opts: {
   };
 }
 
-/** Dateiendung passend zum vom Browser gewählten Format. */
-export function endung(mimeType: string): string {
-  if (mimeType.includes("webm")) return "webm";
-  if (mimeType.includes("mp4")) return "mp4";
-  if (mimeType.includes("ogg")) return "ogg";
-  return "webm";
-}
+/**
+ * Dateiendung passend zum Format — aus der gemeinsamen Stelle.
+ *
+ * Vorher stand hier eine zweite Fassung, die bei mp4 "mp4" lieferte, während
+ * der Angebotsbildschirm "m4a" lieferte. Zwei Antworten auf dieselbe Frage
+ * sind eine zu viel.
+ */
+export { endung } from "@/lib/aufnahme";

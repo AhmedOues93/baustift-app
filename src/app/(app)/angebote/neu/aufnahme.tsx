@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { KundenFormular } from "@/app/(app)/kunden/kunden-formular";
+import {
+  SENDE_ZEITGRENZE_MS,
+  aufnahmeBrauchbar,
+  endung,
+  waehleFormat,
+} from "@/lib/aufnahme";
 import { Button } from "@/components/ui/button";
 import { Meldung, Textarea } from "@/components/ui/field";
 import { IconMikrofon, IconPlus, IconStopp } from "@/components/ui/icons";
@@ -114,22 +120,50 @@ export function Aufnahme({
       ctx.createMediaStreamSource(stream).connect(analyser);
       const daten = new Uint8Array(analyser.frequencyBinCount);
 
-      const zeichnen = () => {
-        analyser.getByteFrequencyData(daten);
-        const schnitt = daten.reduce((a, b) => a + b, 0) / daten.length / 255;
-        setPegel((alt) => [...alt.slice(1), Math.max(0.05, Math.min(1, schnitt * 2.2))]);
+      /**
+       * Die Pegelanzeige lief bisher mit jedem Bild — 60 Zustandsänderungen
+       * in React pro Sekunde, bis zu zehn Minuten lang. Auf einem einfachen
+       * Android frisst das Akku und ruckelt sichtbar. 15-mal pro Sekunde
+       * sieht genauso flüssig aus und ist ein Viertel der Arbeit.
+       */
+      let zuletzt = 0;
+      const zeichnen = (jetzt: number) => {
+        if (jetzt - zuletzt >= 66) {
+          zuletzt = jetzt;
+          analyser.getByteFrequencyData(daten);
+          const schnitt = daten.reduce((a, b) => a + b, 0) / daten.length / 255;
+          setPegel((alt) => [...alt.slice(1), Math.max(0.05, Math.min(1, schnitt * 2.2))]);
+        }
         rafRef.current = requestAnimationFrame(zeichnen);
       };
       rafRef.current = requestAnimationFrame(zeichnen);
 
       teileRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: waehleFormat() });
+      const recorder = new MediaRecorder(stream, {
+        mimeType: waehleFormat((typ) => MediaRecorder.isTypeSupported(typ)),
+      });
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) teileRef.current.push(e.data);
       };
       recorder.onstop = () => {
         const blob = new Blob(teileRef.current, { type: recorder.mimeType });
         aufraeumen();
+
+        /**
+         * Es kommt vor, dass der Recorder läuft und trotzdem nichts ankommt:
+         * abgeschaltetes Mikrofon, von einer anderen App belegte Audiohardware.
+         * Herauskommt ein leerer Blob. Den zu senden kostet einen Aufruf bei
+         * Whisper und bringt eine Meldung, die niemandem weiterhilft.
+         */
+        if (!aufnahmeBrauchbar(blob.size)) {
+          setFehler(
+            "Es ist nichts angekommen. Prüfe, ob das Mikrofon frei ist — oder tippe die Beschreibung ein.",
+          );
+          setTippen(true);
+          setZustand("bereit");
+          return;
+        }
+
         void absenden(blob);
       };
       recorder.start();
@@ -181,10 +215,19 @@ export function Aufnahme({
       formData.set("text", text);
     }
 
+    /**
+     * Ohne eigene Zeitgrenze wartet der Browser im Funkloch unbegrenzt. Der
+     * Bildschirm steht dann auf "Angebot wird erstellt…", und der einzige
+     * Ausweg ist Neuladen — wodurch die Aufnahme verloren geht.
+     */
+    const abbruch = new AbortController();
+    const uhr = setTimeout(() => abbruch.abort(), SENDE_ZEITGRENZE_MS);
+
     try {
       const antwort = await fetch("/api/angebote/neu", {
         method: "POST",
         body: formData,
+        signal: abbruch.signal,
       });
       const ergebnis = await antwort.json();
 
@@ -197,14 +240,22 @@ export function Aufnahme({
       // Direkt in die Prüfung — das ist der Moment, in dem der Handwerker
       // sieht, dass es funktioniert hat.
       router.push(`/angebote/${ergebnis.angebotId}`);
-    } catch {
+    } catch (ausnahme) {
+      const abgelaufen =
+        ausnahme instanceof DOMException && ausnahme.name === "AbortError";
       setFehler(
         letzteAufnahmeRef.current
-          ? "Keine Verbindung. Die Aufnahme bleibt hier — sobald du wieder Netz hast, nochmal senden."
-          : "Keine Verbindung. Sobald du wieder Netz hast, nochmal probieren.",
+          ? abgelaufen
+            ? "Das hat zu lange gedauert. Die Aufnahme bleibt hier — nochmal senden, wenn der Empfang besser ist."
+            : "Keine Verbindung. Die Aufnahme bleibt hier — sobald du wieder Netz hast, nochmal senden."
+          : abgelaufen
+            ? "Das hat zu lange gedauert. Bitte nochmal probieren."
+            : "Keine Verbindung. Sobald du wieder Netz hast, nochmal probieren.",
       );
       setNochmalMoeglich(Boolean(letzteAufnahmeRef.current));
       setZustand("bereit");
+    } finally {
+      clearTimeout(uhr);
     }
   }
 
@@ -383,29 +434,6 @@ export function Aufnahme({
       ) : null}
     </div>
   );
-}
-
-/**
- * Safari kann kein WebM. Wir fragen den Browser, was er wirklich kann, statt
- * ein Format zu erzwingen — sonst nimmt jedes iPhone stumm nichts auf.
- */
-function waehleFormat(): string {
-  const kandidaten = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg;codecs=opus",
-  ];
-  for (const typ of kandidaten) {
-    if (MediaRecorder.isTypeSupported(typ)) return typ;
-  }
-  return "";
-}
-
-function endung(mimeType: string): string {
-  if (mimeType.includes("mp4")) return "m4a";
-  if (mimeType.includes("ogg")) return "ogg";
-  return "webm";
 }
 
 function formatDauer(sekunden: number): string {
