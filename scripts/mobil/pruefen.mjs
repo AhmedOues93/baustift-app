@@ -38,6 +38,10 @@ const SEITEN = [
   ["aufmass", "/aufmass/auf1"],
   ["einstellungen", "/einstellungen"],
   ["abo", "/abo"],
+  ["pakete", "/pakete"],
+  ["paket", "/pakete/pk1"],
+  // Die einzige Seite ohne Anmeldung — und die, die der Kunde sieht.
+  ["kundenangebot", "/angebot/tok-a2"],
 ];
 
 const BREITEN = [390, 360];
@@ -68,14 +72,24 @@ function messen({ minKnopf, minSchrift }) {
   for (const el of document.querySelectorAll("button, a[href], input, select, textarea")) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
-    const beschriftung = (el.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40);
+    const text = (el.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40);
     // Verweise im Fliesstext sind keine Schaltflächen.
     const imText = el.tagName === "A" && el.closest("p, li");
-    if (!imText && r.height < minKnopf) {
-      befunde.push(`zu flach (${Math.round(r.height)} px): „${beschriftung}“`);
+    /**
+     * Ein Auswahlkästchen in einer Beschriftung ist selbst klein — getroffen
+     * wird aber die ganze Beschriftung, denn ein Klick darauf schaltet das
+     * Feld. Entscheidend ist also ihre Höhe, nicht die des Kästchens.
+     */
+    const beschriftung = el.closest("label");
+    const trefferHoehe =
+      beschriftung && (el.type === "checkbox" || el.type === "radio")
+        ? beschriftung.getBoundingClientRect().height
+        : r.height;
+    if (!imText && trefferHoehe < minKnopf) {
+      befunde.push(`zu flach (${Math.round(trefferHoehe)} px): „${text}“`);
     }
     if (r.right > breite + 1 && !inWischreihe(el)) {
-      befunde.push(`ragt ${Math.round(r.right - breite)} px über den Rand: „${beschriftung}“`);
+      befunde.push(`ragt ${Math.round(r.right - breite)} px über den Rand: „${text}“`);
     }
   }
 

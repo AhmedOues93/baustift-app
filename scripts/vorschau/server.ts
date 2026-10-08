@@ -67,6 +67,15 @@ const POSITIONEN = [
   ["Entsorgung Bauschutt",1,"pauschal",180,false],
 ].map(([bezeichnung,menge,einheit,einzelpreis,pruefen]: any,i) => ({ id:`pos${i+1}`, angebot_id:"a1", pos_nr:i+1, bezeichnung, beschreibung:i<2?"Inkl. Material und Entsorgung.":null, menge, einheit, einzelpreis, gesamtpreis:menge*einzelpreis, preisliste_id:null, zu_pruefen:pruefen, ki_konfidenz:pruefen?0.42:0.95, created_at:"", updated_at:"" }));
 
+// Positionen für die verschickten Angebote — sonst zeigt die Kundenseite
+// eine leere Liste, und der Rauchtest prüft nichts.
+POSITIONEN.push(
+  { id:"pos-a2-1", angebot_id:"a2", pos_nr:1, bezeichnung:"Heizkörper demontieren und entsorgen", beschreibung:null, menge:4, einheit:"stk", einzelpreis:68, gesamtpreis:272, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+  { id:"pos-a2-2", angebot_id:"a2", pos_nr:2, bezeichnung:"Heizkörper Typ 22 liefern und montieren", beschreibung:"Inkl. Thermostatventil.", menge:4, einheit:"stk", einzelpreis:312.58, gesamtpreis:1250.32, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+  { id:"pos-a2-3", angebot_id:"a2", pos_nr:3, bezeichnung:"Anlage entlüften und einregulieren", beschreibung:null, menge:3, einheit:"h", einzelpreis:92, gesamtpreis:276, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+  { id:"pos-a3-1", angebot_id:"a3", pos_nr:1, bezeichnung:"Wasserhahn tauschen inkl. Siphon", beschreibung:null, menge:1, einheit:"pauschal", einzelpreis:156.3, gesamtpreis:156.3, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+);
+
 const RECHNUNGEN = [
   ["r1","k5","RE-2026-0018","Wasserhahn + Siphon","gestellt",156.3,29.7,186,3,20,null],
   ["r2","k3","RE-2026-0017","Leitung Küche erneuern","gestellt",2067.23,392.77,2460,12,40,null],

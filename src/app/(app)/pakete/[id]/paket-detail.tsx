@@ -99,16 +99,20 @@ export function PaketDetail({
           <label className="flex min-h-11 items-center gap-2">
             <input
               type="radio"
+              name="quelle"
               checked={ausKatalog}
               onChange={() => setAusKatalog(true)}
+              className="h-5 w-5 accent-akzent"
             />
             Aus der Preisliste
           </label>
           <label className="flex min-h-11 items-center gap-2">
             <input
               type="radio"
+              name="quelle"
               checked={!ausKatalog}
               onChange={() => setAusKatalog(false)}
+              className="h-5 w-5 accent-akzent"
             />
             Freie Zeile
           </label>
