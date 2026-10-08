@@ -56,8 +56,10 @@ Render → Dienst `baustift` → **Environment**. Woher jeder Wert kommt:
 | `RESEND_ABSENDER` | `Name <post@deine-domain.de>`, Domain in Resend bestätigt — **freiwillig** | wie oben |
 | `SENTRY_DSN` | Sentry → Projekt → Client Keys — **freiwillig** | Fehler stehen nur im Render-Log |
 
-`npm run bereit --umgebung` prüft alle elf auf Vorhandensein und Form und
-sagt zu jeder, wofür sie gebraucht wird. Es werden dabei **keine** Anfragen
+`npm run bereit --umgebung` prüft alle zwölf auf Vorhandensein und Form und
+sagt zu jeder, wofür sie gebraucht wird. Die drei freiwilligen zählen nicht
+als Fehler — ohne sie läuft die Anwendung, nur die jeweilige Funktion
+entfällt. Es werden dabei **keine** Anfragen
 an Stripe, Anthropic oder OpenAI geschickt.
 
 > **`NEXT_PUBLIC_SITE_URL` muss schon beim Bauen dastehen.** Aus ihr

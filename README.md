@@ -151,7 +151,7 @@ in Supabase und Stripe einzustellen ist, und ein Live-Testplan — steht in
 Nichts davon ist Programmierarbeit:
 
 - [ ] **Umgebungsvariablen bei Render eintragen.** `npm run bereit
-      --umgebung` listet alle elf mit Herkunft und Zweck.
+      --umgebung` listet alle zwölf mit Herkunft und Zweck.
 - [ ] **Supabase einrichten:** Migrationen einspielen, Redirect-URLs
       setzen, Sicherung einschalten und eine Wiederherstellung einmal
       ausprobiert haben. Das Projekt muss in einer **EU-Region** liegen —

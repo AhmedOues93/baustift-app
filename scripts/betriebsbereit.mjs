@@ -42,8 +42,9 @@ const PRUEFUNGEN = [
   ["STRIPE_SECRET_KEY", /^sk_(test|live)_/, "Geheimschlüssel aus Stripe; sk_test_ zum Üben, sk_live_ für echtes Geld", "Abo abschliessen"],
   ["STRIPE_WEBHOOK_SECRET", /^whsec_/, "aus Stripe → Developers → Webhooks → Signing secret", "Abo-Status nach der Zahlung"],
   ["STRIPE_PRICE_ID", /^price_/, "die Preis-Kennung des Abos aus Stripe", "Abo abschliessen"],
-  ["RESEND_API_KEY", /^re_/, "Schlüssel aus Resend", "Angebot per E-Mail versenden"],
-  ["RESEND_ABSENDER", /^.+<[^@]+@[^>]+>$/, 'Format: Name <post@deine-domain.de> — die Domain muss in Resend bestätigt sein', "Angebot per E-Mail versenden"],
+  ["RESEND_API_KEY", /^re_/, "Schlüssel aus Resend", "Angebot per E-Mail versenden", true],
+  ["RESEND_ABSENDER", /^.+<[^@]+@[^>]+>$/, 'Format: Name <post@deine-domain.de> — die Domain muss in Resend bestätigt sein', "Angebot per E-Mail versenden", true],
+  ["SENTRY_DSN", /^https:\/\/\w+@/, "Sentry → Projekt → Settings → Client Keys", "Fehler landen zusätzlich bei Sentry", true],
 ];
 
 let fehlt = 0;
@@ -51,9 +52,20 @@ let schief = 0;
 
 console.log(ausUmgebung ? "Prüfe die laufende Umgebung\n" : "Prüfe .env.local\n");
 
-for (const [name, form, hinweis, wofuer] of PRUEFUNGEN) {
+for (const [name, form, hinweis, wofuer, freiwillig] of PRUEFUNGEN) {
   const wert = (werte[name] ?? "").trim();
   if (!wert) {
+    /**
+     * Freiwillige Werte sind kein Fehler. Ohne Resend läuft alles weiter,
+     * der Versandknopf verschwindet nur — und ohne Sentry stehen Fehler im
+     * Log des Hosters. Beides als "fehlt" zu zählen, würde den Blick auf
+     * das lenken, was wirklich fehlt.
+     */
+    if (freiwillig) {
+      console.log(`· ${name} nicht gesetzt (freiwillig)`);
+      console.log(`    ohne: ${wofuer} entfällt`);
+      continue;
+    }
     console.log(`✗ ${name} fehlt`);
     console.log(`    gebraucht für: ${wofuer}`);
     console.log(`    ${hinweis}`);
@@ -70,7 +82,7 @@ for (const [name, form, hinweis, wofuer] of PRUEFUNGEN) {
 // Der eine Fehler, der still Geld kostet: Live-Schlüssel auf einer Testadresse.
 const live = (werte.STRIPE_SECRET_KEY ?? "").startsWith("sk_live_");
 const adresse = werte.NEXT_PUBLIC_SITE_URL ?? "";
-if (live && (adresse.includes("localhost") || adresse.includes("vercel.app"))) {
+if (live && (adresse.includes("localhost") || adresse.includes("vercel.app") || adresse === "")) {
   console.log("\n⚠ Stripe läuft im Echtbetrieb (sk_live_), die Adresse ist aber eine Test-Adresse.");
   console.log("  Damit werden echte Zahlungen auf einer Vorschau ausgelöst.");
   schief++;
