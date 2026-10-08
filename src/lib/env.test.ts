@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { publicEnv, serverEnv } from "./env";
+import { istKonfigurationsFehler, publicEnv, serverEnv } from "./env";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 describe("serverEnv", () => {
@@ -62,5 +62,25 @@ describe("eigene Adresse", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(() => publicEnv.siteUrl).toThrow("NEXT_PUBLIC_SITE_URL");
     vi.unstubAllEnvs();
+  });
+});
+
+describe("fehlende Einstellungen", () => {
+  it("nennt die Variable und wo sie hingehört", () => {
+    expect(() => serverEnv().anthropicApiKey).toThrow("ANTHROPIC_API_KEY");
+  });
+
+  it("ist als Einrichtungsfehler erkennbar", () => {
+    // Der Unterschied zählt: ein ausgefallener Dienst geht von selbst
+    // wieder, eine fehlende Variable nicht. Die Routen zeigen deshalb
+    // eine andere Meldung.
+    let gefangen: unknown;
+    try {
+      serverEnv().stripeSecretKey;
+    } catch (fehler) {
+      gefangen = fehler;
+    }
+    expect(istKonfigurationsFehler(gefangen)).toBe(true);
+    expect(istKonfigurationsFehler(new Error("irgendwas anderes"))).toBe(false);
   });
 });

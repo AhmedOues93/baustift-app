@@ -11,6 +11,7 @@ import {
 } from "@/lib/ai/transcribe";
 import { darfAngebotErstellen } from "@/lib/abo";
 import { istStille } from "@/lib/aufnahme";
+import { istKonfigurationsFehler } from "@/lib/env";
 import { protokolliereFehler, protokolliereWarnung } from "@/lib/protokoll";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { PreislisteEintrag } from "@/types/database";
@@ -147,7 +148,17 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       const ergebnis = await transkribiere(audio);
       transkript = ergebnis.text;
       audioSekunden = ergebnis.sekunden;
-    } catch {
+    } catch (fehler) {
+      if (istKonfigurationsFehler(fehler)) {
+        protokolliereFehler({ vorgang: "angebot.transkription", userId: user.id }, fehler);
+        return NextResponse.json(
+          {
+            fehler:
+              "Die Spracherkennung ist noch nicht eingerichtet. Das liegt nicht an dir — bitte melde dich beim Support.",
+          },
+          { status: 503 },
+        );
+      }
       return NextResponse.json(
         { fehler: "Die Aufnahme konnte nicht verarbeitet werden. Bitte nochmal." },
         { status: 502 },
@@ -202,6 +213,21 @@ export async function POST(request: Request): Promise<NextResponse<Antwort>> {
       { vorgang: "angebot.extraktion", userId: user.id },
       fehler,
     );
+    /**
+     * Fehlt ein Schlüssel, hilft kein zweiter Versuch — und genau das würde
+     * "Bitte versuche es noch einmal" dem Handwerker nahelegen. Also eine
+     * Meldung, die sagt, dass es nicht an ihm liegt, und ein 503 statt 502:
+     * der Dienst ist nicht gestört, er ist nicht eingerichtet.
+     */
+    if (istKonfigurationsFehler(fehler)) {
+      return NextResponse.json(
+        {
+          fehler:
+            "Die Spracherkennung ist noch nicht eingerichtet. Das liegt nicht an dir — bitte melde dich beim Support.",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       {
         fehler:
