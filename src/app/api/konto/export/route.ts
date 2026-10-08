@@ -25,7 +25,7 @@ export async function GET() {
   const [
     profil, kunden, preisliste, angebote, positionen, rechnungen,
     rechnungPositionen, zahlungen, aufmasse, messungen, auftraege, dokumentation,
-    nutzung, rueckmeldungen,
+    pakete, paketZeilen, nutzung, rueckmeldungen,
   ] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
@@ -40,6 +40,8 @@ export async function GET() {
       supabase.from("aufmass_positionen").select("*"),
       supabase.from("auftraege").select("*"),
       supabase.from("auftrag_dokumentation").select("*"),
+      supabase.from("leistungspakete").select("*"),
+      supabase.from("paket_positionen").select("*"),
       supabase.from("ki_nutzung").select("*"),
       supabase.from("feedback").select("*"),
     ]);
@@ -61,6 +63,8 @@ export async function GET() {
     messungen: messungen.data ?? [],
     auftraege: auftraege.data ?? [],
     baustellendokumentation: dokumentation.data ?? [],
+    leistungspakete: pakete.data ?? [],
+    paketpositionen: paketZeilen.data ?? [],
     ki_nutzung: nutzung.data ?? [],
     rueckmeldungen: rueckmeldungen.data ?? [],
   };

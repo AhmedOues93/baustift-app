@@ -159,6 +159,7 @@ echo "→ Seiten"
 for pfad in / /login /angebote /angebote/a1 /angebote/neu /rechnungen /rechnungen/r3 \
             /kunden /kunden/k1 /preisliste /aufmass /aufmass/auf1 /einstellungen /abo \
             /rechtliches/impressum /rechtliches/datenschutz \
+            /pakete /pakete/pk1 \
             /angebot/tok-a2 /angebot/tok-a3; do
   pruefe "$pfad" 200 "text/html"
 done

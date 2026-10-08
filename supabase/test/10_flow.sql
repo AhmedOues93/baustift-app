@@ -873,3 +873,160 @@ begin
 end $$;
 
 reset role;
+
+-- =========================================================================
+-- 34–36  Leistungspakete
+-- =========================================================================
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+set role app_user;
+
+do $$
+declare
+  v_paket   uuid;
+  v_angebot uuid;
+  v_preis   uuid;
+  v_anzahl  int;
+  v_zeile   record;
+begin
+  select id into v_preis from public.preisliste
+  where user_id = '11111111-1111-1111-1111-111111111111' limit 1;
+
+  insert into public.leistungspakete (user_id, name)
+  values ('11111111-1111-1111-1111-111111111111', 'Bad komplett bis 10 m²')
+  returning id into v_paket;
+
+  insert into public.paket_positionen (paket_id, pos_nr, preisliste_id, bezeichnung, menge, einheit, einzelpreis)
+  values
+    (v_paket, 1, v_preis, 'Fliesen verlegen', 10, 'm2', 0),
+    -- Zeile ohne Katalogeintrag: der Preis steht im Paket.
+    (v_paket, 2, null, 'Entsorgung Bauschutt', 1, 'pauschal', 180);
+
+  insert into public.angebote (user_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', 'AN-2026-0910', 'Paket-Test',
+          'entwurf', current_date, current_date + 30, 19)
+  returning id into v_angebot;
+
+  -- Eine Zeile steht schon drin: das Paket muss dahinter einsortiert werden.
+  insert into public.positionen (angebot_id, pos_nr, bezeichnung, menge, einheit, einzelpreis)
+  values (v_angebot, 1, 'Anfahrt', 1, 'pauschal', 45);
+
+  v_anzahl := public.paket_in_angebot(v_paket, v_angebot);
+  if v_anzahl <> 2 then
+    raise exception 'Paket hat % Zeilen eingefügt statt 2', v_anzahl;
+  end if;
+
+  select count(*) into v_anzahl from public.positionen where angebot_id = v_angebot;
+  if v_anzahl <> 3 then
+    raise exception 'Angebot hat % Zeilen statt 3 — die vorhandene wurde überschrieben', v_anzahl;
+  end if;
+
+  -- Der Preis kommt aus dem Katalog, nicht aus dem Paket.
+  select * into v_zeile from public.positionen
+  where angebot_id = v_angebot and bezeichnung = 'Fliesen verlegen';
+  if v_zeile.einzelpreis <> (select einzelpreis from public.preisliste where id = v_preis) then
+    raise exception 'Paketpreis kommt nicht aus der Preisliste: %', v_zeile.einzelpreis;
+  end if;
+  if v_zeile.zu_pruefen then
+    raise exception 'Zeile mit gültigem Katalogeintrag ist unnötig als zu prüfen markiert';
+  end if;
+  if v_zeile.pos_nr <> 2 then
+    raise exception 'Paketzeile einsortiert auf %, erwartet 2', v_zeile.pos_nr;
+  end if;
+
+  -- Die Zeile ohne Katalogeintrag behält ihren Preis, wird aber markiert.
+  select * into v_zeile from public.positionen
+  where angebot_id = v_angebot and bezeichnung = 'Entsorgung Bauschutt';
+  if v_zeile.einzelpreis <> 180 then
+    raise exception 'Freie Paketzeile hat Preis % statt 180', v_zeile.einzelpreis;
+  end if;
+  if not v_zeile.zu_pruefen then
+    raise exception 'Zeile ohne Katalogeintrag müsste zu prüfen sein';
+  end if;
+
+  raise notice '34. Paket -> Zeilen angehängt, Preis aus dem Katalog, freie Zeile markiert';
+end $$;
+
+-- Preisänderung im Katalog schlägt auf das nächste Angebot durch.
+do $$
+declare
+  v_paket   uuid;
+  v_angebot uuid;
+  v_preis   uuid;
+  v_neu     numeric;
+begin
+  select id into v_paket from public.leistungspakete where name = 'Bad komplett bis 10 m²';
+  select id into v_preis from public.preisliste
+  where user_id = '11111111-1111-1111-1111-111111111111' limit 1;
+
+  update public.preisliste set einzelpreis = 99.00 where id = v_preis;
+
+  insert into public.angebote (user_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', 'AN-2026-0911', 'Paket-Test 2',
+          'entwurf', current_date, current_date + 30, 19)
+  returning id into v_angebot;
+
+  perform public.paket_in_angebot(v_paket, v_angebot);
+
+  select einzelpreis into v_neu from public.positionen
+  where angebot_id = v_angebot and bezeichnung = 'Fliesen verlegen';
+
+  -- Genau dafür speichert ein Paket Verweise und keine Preise: wer seine
+  -- Sätze erhöht, soll das nicht in zwölf Paketen nachpflegen müssen.
+  if v_neu <> 99.00 then
+    raise exception 'Paket nimmt den alten Preis % statt 99,00', v_neu;
+  end if;
+
+  raise notice '35. Paket -> Preisänderung im Katalog wirkt sofort';
+end $$;
+
+-- Für den Fremdzugriffstest: die Kennung merken, als hätte jemand sie
+-- mitgeschnitten. Raten liesse sie sich nicht.
+do $$
+begin
+  perform set_config('test.fremdes_paket',
+    (select id::text from public.leistungspakete where name = 'Bad komplett bis 10 m²'), false);
+end $$;
+
+reset role;
+
+-- Fremde Pakete bleiben fremd.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+set role app_user;
+
+do $$
+declare
+  v int;
+  v_fremdes uuid;
+  v_eigenes uuid;
+begin
+  select count(*) into v from public.leistungspakete;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremdes Paket sichtbar (%)', v; end if;
+
+  select count(*) into v from public.paket_positionen;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Paketzeilen sichtbar (%)', v; end if;
+
+  -- Und es lässt sich auch nicht blind in ein eigenes Angebot ziehen: die
+  -- Funktion läuft als Aufrufer, sieht das fremde Paket also gar nicht.
+  insert into public.angebote (user_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('22222222-2222-2222-2222-222222222222', 'AN-2026-0912', 'Fremdzugriff',
+          'entwurf', current_date, current_date + 30, 19)
+  returning id into v_eigenes;
+
+  -- Die Kennung des fremden Pakets ist nicht zu erraten; für den Test wird
+  -- sie direkt gesetzt, als hätte jemand sie mitgeschnitten.
+  v_fremdes := current_setting('test.fremdes_paket')::uuid;
+
+  v := public.paket_in_angebot(v_fremdes, v_eigenes);
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: fremdes Paket in eigenes Angebot kopiert (% Zeilen)', v;
+  end if;
+
+  select count(*) into v from public.positionen where angebot_id = v_eigenes;
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: % Zeilen aus fremdem Paket angelegt', v;
+  end if;
+
+  raise notice '36. RLS -> fremdes Paket weder sichtbar noch übernehmbar';
+end $$;
+
+reset role;

@@ -13,6 +13,7 @@ import {
   statusSetzen,
   type PositionEingabe,
 } from "./actions";
+import { paketUebernehmen } from "@/app/(app)/pakete/actions";
 import { rechnungAusAngebot } from "@/app/(app)/rechnungen/actions";
 import { auftragAusAngebot } from "@/app/(app)/auftraege/actions";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
   type AngebotStatus,
   type Einheit,
   type Kunde,
+  type Leistungspaket,
   type Position,
 } from "@/types/database";
 
@@ -69,12 +71,15 @@ export function AngebotEditor({
   kunden,
   versandMoeglich,
   freigabeUrl,
+  pakete,
 }: {
   angebot: Angebot;
   positionen: Position[];
   kunden: Kunde[];
   /** Ist der E-Mail-Versand überhaupt eingerichtet? */
   versandMoeglich: boolean;
+  /** Leistungspakete des Betriebs — leer heisst: der Knopf erscheint nicht. */
+  pakete: Leistungspaket[];
   /** Link, unter dem der Kunde das Angebot sieht und entscheidet. */
   freigabeUrl: string;
 }) {
@@ -105,6 +110,8 @@ export function AngebotEditor({
     { art: "fehler" | "erfolg"; text: string } | null
   >(null);
   const [loeschenOffen, setLoeschenOffen] = useState(false);
+  const [paketWahl, setPaketWahl] = useState("");
+  const [paketPending, paketStarten] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Beim ersten Rendern nicht speichern — sonst schreibt jedes Öffnen.
   const ersterLauf = useRef(true);
@@ -421,6 +428,50 @@ export function AngebotEditor({
           <IconPlus className="h-5 w-5" />
           Position hinzufügen
         </button>
+
+        {/* Leistungspaket -----------------------------------------------------
+            Erscheint nur, wenn es überhaupt Pakete gibt. Ein Knopf, hinter
+            dem nichts liegt, ist schlimmer als kein Knopf. */}
+        {pakete.length > 0 ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              value={paketWahl}
+              onChange={(e) => setPaketWahl(e.target.value)}
+              aria-label="Leistungspaket"
+              disabled={paketPending}
+              className="min-h-11 flex-1 rounded-feld border border-linie bg-flaeche px-3 text-base text-text focus:border-text focus:outline-none"
+            >
+              <option value="">Leistungspaket übernehmen…</option>
+              {pakete.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              variante="sekundaer"
+              disabled={!paketWahl || paketPending}
+              onClick={() => {
+                const id = paketWahl;
+                paketStarten(async () => {
+                  // Erst speichern: die Datenbank hängt die Paketzeilen
+                  // hinter die vorhandenen, und "vorhanden" heisst für sie
+                  // das, was wirklich gespeichert ist.
+                  await speichern();
+                  const ergebnis = await paketUebernehmen(angebot.id, id);
+                  if (ergebnis.fehler) {
+                    setVersandMeldung({ art: "fehler", text: ergebnis.fehler });
+                    return;
+                  }
+                  setPaketWahl("");
+                  router.refresh();
+                });
+              }}
+            >
+              {paketPending ? "Einen Moment…" : "Übernehmen"}
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       {/* Summen -------------------------------------------------------------- */}

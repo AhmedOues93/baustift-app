@@ -210,6 +210,32 @@ export type FreigabePosition = {
   gesamtpreis: number;
 };
 
+export type Leistungspaket = {
+  id: string;
+  user_id: string;
+  name: string;
+  beschreibung: string | null;
+  aktiv: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaketPosition = {
+  id: string;
+  paket_id: string;
+  pos_nr: number;
+  /** Verweis in den Katalog. Der Preis kommt beim Einfügen von dort. */
+  preisliste_id: string | null;
+  bezeichnung: string;
+  beschreibung: string | null;
+  menge: number;
+  einheit: Einheit;
+  /** Nur für Zeilen ohne Katalogeintrag. */
+  einzelpreis: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Position = {
   id: string;
   angebot_id: string;
@@ -422,6 +448,21 @@ export type Database = {
         /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
         Relationships: [];
       };
+      leistungspakete: {
+        Row: Leistungspaket;
+        Insert: Omit<Leistungspaket, "id" | "created_at" | "updated_at" | "aktiv"> & {
+          id?: string;
+          aktiv?: boolean;
+        };
+        Update: Partial<Leistungspaket>;
+        Relationships: [];
+      };
+      paket_positionen: {
+        Row: PaketPosition;
+        Insert: Omit<PaketPosition, "id" | "created_at" | "updated_at"> & { id?: string };
+        Update: Partial<PaketPosition>;
+        Relationships: [];
+      };
       angebote: {
         Row: Angebot;
         // Die Nachfass- und Freigabefelder haben Vorgaben in der Datenbank:
@@ -579,6 +620,11 @@ export type Database = {
       angebot_geoeffnet: {
         Args: { p_token: string };
         Returns: undefined;
+      };
+      /** Paket in ein Angebot übernehmen (0020_leistungspakete.sql). */
+      paket_in_angebot: {
+        Args: { p_paket_id: string; p_angebot_id: string };
+        Returns: number;
       };
       angebot_id_per_token: {
         Args: { p_token: string };
