@@ -1,125 +1,181 @@
-# baustift.de veröffentlichen
+# Baustift betreiben
 
-Die Anwendung ist fertig gebaut, aber noch nirgends erreichbar. Es gibt
-deshalb bis jetzt **keinen Link** — die Startseite liegt unter `/` derselben
-Next-Anwendung, in der auch die App läuft:
+Die Anwendung läuft auf **Render**: <https://baustift.onrender.com>
+
+Es ist **eine** Next-Anwendung, keine zwei Projekte — die Landingpage liegt
+unter `/` derselben Anwendung, in der auch die App läuft. Das ist Absicht:
+wer sich anmeldet, bleibt auf derselben Domain, und es gibt keinen zweiten
+Aufbau, der gepflegt werden muss.
 
 | Adresse | Was dort liegt |
 |---|---|
 | `/` | Landingpage (öffentlich) |
 | `/login`, `/signup` | Anmeldung und Registrierung |
-| `/angebote`, `/rechnungen`, `/kunden`, `/preisliste`, `/aufmass`, `/auftraege`, `/einstellungen` | die App, nur mit Anmeldung |
+| `/angebote`, `/rechnungen`, `/auftraege`, `/kunden`, `/preisliste`, `/pakete`, `/aufmass`, `/einstellungen` | die App, nur mit Anmeldung |
+| `/angebot/<schlüssel>` | das Angebot beim Kunden — ohne Konto, ohne Anmeldung |
 | `/rechtliches/*` | Impressum, Datenschutz, AGB, AV-Vertrag |
+| `/api/healthz` | Lebenszeichen für Render |
 
-Es ist **eine** Anwendung, keine zwei Projekte. Das ist Absicht: ein
-Besucher, der sich anmeldet, bleibt auf derselben Domain, und es gibt keinen
-zweiten Aufbau, der gepflegt werden muss.
-
-## Auf dem eigenen Rechner ansehen
+## Auf dem eigenen Rechner
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local     # ausfüllen, siehe unten
 npm run dev
 ```
 
-Dann im Browser: **http://localhost:3000** — das ist die Landingpage.
-
-Ohne die Supabase-Werte startet die Anwendung nicht; die Startseite braucht
-sie zwar nicht, die Middleware prüft aber bei jedem Aufruf die Sitzung.
+Dann **http://localhost:3000**. Ohne die Supabase-Werte startet die
+Anwendung nicht: die Startseite braucht sie zwar nicht, die Middleware
+prüft aber bei jedem Aufruf die Sitzung.
 
 ---
 
-## Veröffentlichen (Vercel)
+## Render
 
-1. **Projekt anlegen.** Auf vercel.com mit GitHub anmelden, das Repository
-   auswählen. Vercel erkennt Next selbst; es ist nichts einzustellen.
+Der Dienst ist in [`render.yaml`](../../render.yaml) beschrieben — Region
+Frankfurt, Build- und Startbefehl, Node 22, Lebenszeichen auf
+`/api/healthz`. Die Datei enthält **keine Geheimnisse**: alle Werte mit
+`sync: false` trägt der Besitzer einmal im Render-Dashboard ein.
 
-2. **Region auf Frankfurt.** Projekteinstellungen → Functions → Region
-   `fra1`. Sonst laufen die Serverfunktionen in den USA, während die
-   Datenbank in Frankfurt steht: langsamer, und es widerspricht dem, was in
-   der Datenschutzerklärung steht.
+### Umgebungsvariablen bei Render eintragen
 
-3. **Umgebungsvariablen setzen** (Settings → Environment Variables), für
-   Production **und** Preview:
+Render → Dienst `baustift` → **Environment**. Woher jeder Wert kommt:
 
-   | Variable | Woher |
-   |---|---|
-   | `NEXT_PUBLIC_SITE_URL` | `https://baustift.de` — davon hängen Sitemap, Teilen-Bild und die Rückleitungen von Stripe ab |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ebenda |
-   | `SUPABASE_SERVICE_ROLE_KEY` | ebenda — **nur** Production, nie ins Frontend |
-   | `ANTHROPIC_API_KEY` | console.anthropic.com |
-   | `OPENAI_API_KEY` | platform.openai.com |
-   | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` | Stripe-Dashboard |
-   | `RESEND_API_KEY`, `RESEND_ABSENDER` | optional; ohne sie verschwindet der Versandknopf, alles andere läuft |
-   | `SENTRY_DSN` | optional |
+| Variable | Woher | Fehlt sie, dann … |
+|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | `https://baustift.onrender.com`, später die eigene Domain | **bricht der Build ab** (Absicht, siehe unten) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | App startet nicht |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ebenda → `anon` `public` | niemand kann sich anmelden |
+| `SUPABASE_SERVICE_ROLE_KEY` | ebenda → `service_role` (**nie ins Frontend**) | Stripe-Webhook und Verbrauchsprotokoll scheitern |
+| `ANTHROPIC_API_KEY` | <https://console.anthropic.com/settings/keys> | kein Angebot aus dem Diktat |
+| `OPENAI_API_KEY` | <https://platform.openai.com/api-keys> | keine Sprachaufnahme |
+| `STRIPE_SECRET_KEY` | Stripe → Developers → API keys (`sk_test_…` zum Üben) | kein Abo abschliessbar |
+| `STRIPE_PRICE_ID` | Stripe → Product → Pricing → API ID (`price_…`) | Checkout scheitert |
+| `STRIPE_WEBHOOK_SECRET` | Stripe → Webhooks → Signing secret (`whsec_…`) | Zahlung kommt nie im Konto an |
+| `RESEND_API_KEY` | <https://resend.com/api-keys> — **freiwillig** | Versandknopf verschwindet, PDF wird heruntergeladen |
+| `RESEND_ABSENDER` | `Name <post@deine-domain.de>`, Domain in Resend bestätigt — **freiwillig** | wie oben |
+| `SENTRY_DSN` | Sentry → Projekt → Client Keys — **freiwillig** | Fehler stehen nur im Render-Log |
 
-4. **Migrationen einspielen.** Alle Dateien aus `supabase/migrations/` der
-   Reihe nach im SQL-Editor von Supabase ausführen — von `0001` bis zur
-   letzten. Sie bauen aufeinander auf; die Reihenfolge ist Pflicht.
+`npm run bereit --umgebung` prüft alle elf auf Vorhandensein und Form und
+sagt zu jeder, wofür sie gebraucht wird. Es werden dabei **keine** Anfragen
+an Stripe, Anthropic oder OpenAI geschickt.
 
-5. **Domain verbinden.** Vercel → Settings → Domains → `baustift.de`
-   eintragen. Vercel nennt die DNS-Einträge, die beim Domainanbieter zu
-   setzen sind (A-Record oder CNAME). Das Zertifikat stellt Vercel selbst
-   aus. `www.baustift.de` gleich mit eintragen und auf die Hauptdomain
-   leiten lassen.
+> **`NEXT_PUBLIC_SITE_URL` muss schon beim Bauen dastehen.** Aus ihr
+> entstehen der Bestätigungslink der Registrierung, der Link zum
+> Zurücksetzen des Passworts, die Rücksprungadresse von Stripe und der
+> Kundenlink zum Angebot. Fehlt sie, bricht der Produktionsbuild
+> absichtlich ab (`src/lib/env.ts`) — besser, als stillschweigend auf
+> `localhost` zu verlinken und erst am ersten Kunden zu merken, dass
+> niemand hereinkommt.
 
-6. **Supabase-Weiterleitungen eintragen.** Supabase → Authentication → URL
-   Configuration:
-   - Site URL: `https://baustift.de`
-   - Redirect URLs: `https://baustift.de/auth/callback`
+### Einmalig in den Fremddiensten
 
-   Fehlt das, landen Bestätigungs- und Passwort-Links auf localhost — und
-   niemand kann sein Konto bestätigen.
+1. **Supabase → Authentication → URL Configuration**
+   - Site URL: `https://baustift.onrender.com`
+   - Redirect URLs: `https://baustift.onrender.com/auth/callback`
 
-7. **Stripe-Webhook einrichten.** Stripe → Developers → Webhooks → Endpoint
-   `https://baustift.de/api/stripe/webhook`. Diese Ereignisse abonnieren:
-   `checkout.session.completed`,
-   `customer.subscription.created/updated/deleted`. Das Signing Secret danach
-   als `STRIPE_WEBHOOK_SECRET` in Vercel eintragen und neu veröffentlichen.
+   Fehlt das, landen Bestätigungs- und Passwort-Links ins Leere.
 
-## Vorher selbst prüfen
+2. **Supabase → Migrationen einspielen.** Alle Dateien aus
+   `supabase/migrations/` in aufsteigender Reihenfolge, etwa über
+   `supabase db push` oder den SQL-Editor.
 
-Vier Befehle, die alle ohne Zugangsdaten für fremde Dienste laufen und
-nichts auslösen — keine Zahlung, keine E-Mail:
+3. **Stripe → Developers → Webhooks → Endpoint**
+   `https://baustift.onrender.com/api/stripe/webhook`. Diese Ereignisse
+   abonnieren: `checkout.session.completed`,
+   `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted`. Das Signing Secret danach als
+   `STRIPE_WEBHOOK_SECRET` eintragen und neu veröffentlichen.
 
-| Befehl | Was er beantwortet |
-| --- | --- |
-| `npm run bereit` | Sind alle Einstellungen gesetzt und plausibel? (`--umgebung` liest die echte Umgebung statt `.env.local`) |
-| `npm run test:rauch` | Antworten im **gebauten** Next alle Seiten und Routen, und steht im PDF wirklich etwas drin? |
-| `npm run mobil` | Bedienbarkeit bei 390 px und 360 px, im echten Browser gemessen |
-| `npm run erechnung` | Besteht die E-Rechnung das CII-Schema und den EN-16931-Prüfer der EU-Kommission? |
+4. **Eigene Domain (wenn gewünscht).** Render → Settings → Custom Domain.
+   Render nennt die DNS-Einträge; das Zertifikat stellt Render selbst aus.
+   Danach `NEXT_PUBLIC_SITE_URL` ändern, **neu bauen**, und die Adressen in
+   Supabase und Stripe nachziehen.
 
-Dazu `npm test`, `npm run typecheck` und — mit laufendem Postgres —
-`npm run test:db` für Trigger und Mandantentrennung.
+---
 
-## Danach prüfen
+## Was automatisch geprüft wird — und was nicht
 
-In dieser Reihenfolge, weil jeder Punkt den nächsten voraussetzt:
+Drei Stufen, die man nicht verwechseln sollte:
 
-- [ ] `https://baustift.de` zeigt die Landingpage
-- [ ] `https://baustift.de/robots.txt` und `/sitemap.xml` liefern Text und
-      XML, keine Weiterleitung auf die Anmeldung
-- [ ] Registrieren, Bestätigungsmail kommt an, Link führt auf die App
-- [ ] Firmendaten eintragen, einen Preis anlegen
-- [ ] Ein Angebot einsprechen — hier zeigt sich, ob die KI-Schlüssel
-      stimmen
-- [ ] PDF öffnen und herunterladen
-- [ ] Abo im Testmodus abschliessen; danach steht in Supabase bei `profiles`
-      der Status auf `aktiv` — sonst kommt der Webhook nicht an
+| Stufe | Befehl | Was wirklich angefasst wird |
+|---|---|---|
+| **Absicht** | `npm test` | Datenbank im Arbeitsspeicher, Attrappen für Whisper, Claude, Stripe und E-Mail. Prüft, was die Anwendung tun *will*. |
+| **Verhalten** | `npm run test:db` | **Echtes Postgres.** Trigger, Summen, RLS, Unveränderlichkeit gestellter Rechnungen, und ob Browser und Datenbank dieselben Beträge rechnen. |
+| | `npm run test:rauch` | Die **gebaute** Anwendung: alle Seiten und Routen, PDFs werden gerendert und wieder ausgelesen. |
+| | `npm run erechnung` | **Offizielle Regelwerke**: CII-Schema D16B und der EN-16931-Schematron der EU-Kommission. |
+| | `npm run mobil` | **Echter Chromium** bei 390 px und 360 px. |
+| **Nur mit echten Zugangsdaten** | — | Registrierung, Bestätigungsmail, Passwort-Reset, echte Transkription, echte Extraktion, echter Stripe-Durchlauf, echter Mailversand. Siehe Live-Testplan unten. |
+
+Dazu `npm run typecheck` und `npm run lint`. Alles zusammen läuft in CI
+(`.github/workflows/ci.yml`) bei jedem Push.
+
+### Stände der E-Rechnungs-Prüfung
+
+`npm run erechnung` lädt fremde Regelwerke — **auf feste Stände genagelt**,
+damit das Ergebnis nicht davon abhängt, welcher Tag gerade ist:
+
+| Regelwerk | Stand |
+|---|---|
+| EN 16931 (EU-Kommission) | `validation-1.3.16` |
+| XRechnung (KoSIT) | `v2.6.0` |
+| ISO-Schematron-Skelett | `2020-10-01` |
+| Saxon-HE | Commit `355db68f` (12.4) |
+
+Die Stände stehen als Konstanten oben in
+`scripts/erechnung-pruefen.sh`. Heraufsetzen ist eine bewusste Entscheidung
+mit eigenem Commit. Die geladenen Artefakte landen unter `.pruefung/` und
+nicht im Git — über 100 MB fremder Code, jederzeit identisch neu ladbar.
+
+---
+
+## Live-Testplan
+
+Dieser Teil lässt sich nicht automatisieren: er braucht echte Zugangsdaten
+und löst echte Vorgänge aus. In dieser Reihenfolge, weil jeder Punkt den
+nächsten voraussetzt. **Stripe dabei im Testmodus lassen** (`sk_test_…`),
+sonst fliesst echtes Geld.
+
+- [ ] `https://baustift.onrender.com/api/healthz` antwortet `{"status":"ok"}`
+- [ ] `/` zeigt die Landingpage
+- [ ] `/robots.txt` und `/sitemap.xml` liefern Text und XML, keine
+      Weiterleitung auf die Anmeldung
+- [ ] **Registrieren** unter `/signup`; Bestätigungsmail kommt an, der Link
+      führt in die App *(prüft `NEXT_PUBLIC_SITE_URL` und die
+      Supabase-Redirects)*
+- [ ] **Passwort zurücksetzen** über `/passwort-vergessen`; Link führt auf
+      `/passwort-neu` und das neue Passwort funktioniert
+- [ ] Firmendaten eintragen — ohne sie ist das PDF kein Geschäftsdokument
+- [ ] **Preisliste importieren** (CSV aus Excel, mit Umlauten)
+- [ ] **Angebot einsprechen** *(prüft `OPENAI_API_KEY` und
+      `ANTHROPIC_API_KEY`)*; unsichere Positionen erscheinen gelb
+- [ ] Unsichere Positionen bestätigen — vorher lässt sich nichts versenden
+- [ ] **PDF** öffnen und herunterladen
+- [ ] **Per E-Mail versenden** *(prüft `RESEND_*`)*; die Mail enthält den
+      Kundenlink
+- [ ] **Kundenlink** in einem privaten Fenster öffnen (ohne Anmeldung):
+      Angebot sichtbar, PDF ladbar, **annehmen** funktioniert
+- [ ] Im Betrieb steht jetzt „Der Kunde hat zugesagt" und eine Mail ist
+      angekommen
+- [ ] Angebot **in eine Rechnung** umwandeln, Rechnung stellen
+- [ ] **E-Rechnung** herunterladen und in der Buchhaltungssoftware des
+      Vertrauens einlesen
+- [ ] **Abo im Stripe-Testmodus** abschliessen; danach steht in Supabase
+      bei `profiles` der Status auf `aktiv` — sonst kommt der Webhook nicht
+      an. Testkarte: `4242 4242 4242 4242`
+- [ ] Kundenportal öffnen und wieder schliessen
+- [ ] **Datenexport** unter `/einstellungen` herunterladen
 - [ ] Die Seite auf dem Handy zum Startbildschirm hinzufügen
 
-## Was vor dem ersten echten Kunden noch fehlt
+---
+
+## Was ausserhalb der Technik noch offen ist
 
 Nichts davon ist Programmierarbeit:
 
 1. **Rechtstexte ausfüllen.** `./scripts/platzhalter.sh` zeigt die offenen
-   Stellen, `docs/rechtliches/checkliste.md` erklärt jede einzelne.
-2. **AV-Verträge annehmen** bei Supabase, OpenAI, Anthropic, Stripe, Resend
-   und Vercel. Abschnitt 5 derselben Checkliste.
+   Stellen, `docs/rechtliches/checkliste.md` erklärt jede einzelne. Sie
+   bleiben bewusst leer — sie brauchen echte Unternehmensdaten.
+2. **AV-Verträge annehmen** bei Supabase, OpenAI, Anthropic, Stripe,
+   Resend und Render. Abschnitt 5 derselben Checkliste.
 3. **Anwaltliche Prüfung** der ausgefüllten Texte.
-4. **Echten Ablauf einmal von Hand durchgehen** — Registrierung,
-   Bestätigungsmail, Passwort-Reset, ein gesprochenes Angebot, Abo im
-   Stripe-Testmodus. Das lässt sich ohne die echten Zugangsdaten nicht
-   automatisieren; die Liste oben unter „Danach prüfen“ ist genau dafür da.

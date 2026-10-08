@@ -33,11 +33,23 @@ describe("eigene Adresse", () => {
   it("fällt in der Entwicklung auf localhost zurück", () => {
     delete process.env.NEXT_PUBLIC_SITE_URL;
     delete process.env.NEXT_PUBLIC_VERCEL_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
     expect(publicEnv.siteUrl).toBe("http://localhost:3000");
   });
 
-  it("nimmt in der Vorschau die Adresse von Vercel", () => {
+  it("nimmt die Adresse, die Render selbst kennt", () => {
+    // Render setzt RENDER_EXTERNAL_URL zur Laufzeit — vollständig, mit
+    // Schema. Hilft bei den serverseitig entstehenden Links, ersetzt aber
+    // NEXT_PUBLIC_SITE_URL nicht: die wird beim Bauen gebraucht.
     delete process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.RENDER_EXTERNAL_URL = "https://baustift.onrender.com/";
+    expect(publicEnv.siteUrl).toBe("https://baustift.onrender.com");
+    delete process.env.RENDER_EXTERNAL_URL;
+  });
+
+  it("nimmt sonst die Adresse von Vercel", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
     process.env.NEXT_PUBLIC_VERCEL_URL = "baustift-abc123.vercel.app";
     expect(publicEnv.siteUrl).toBe("https://baustift-abc123.vercel.app");
   });
@@ -46,6 +58,7 @@ describe("eigene Adresse", () => {
     // Sonst geht der Bestätigungslink jeder Registrierung ins Leere.
     delete process.env.NEXT_PUBLIC_SITE_URL;
     delete process.env.NEXT_PUBLIC_VERCEL_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
     vi.stubEnv("NODE_ENV", "production");
     expect(() => publicEnv.siteUrl).toThrow("NEXT_PUBLIC_SITE_URL");
     vi.unstubAllEnvs();

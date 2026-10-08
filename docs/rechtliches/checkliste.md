@@ -34,10 +34,11 @@ auftrittst.
 ## 2. Hosting
 
 In der Datenschutzerklärung stehen `[Hosting-Anbieter]` und `[Region]`.
-Läuft die Anwendung auf Vercel, trag Vercel ein und die Region, in der die
-Funktionen ausgeführt werden — bei einem deutschen Produkt sinnvollerweise
-Frankfurt (`fra1`). Das ist in den Projekteinstellungen des Hosters zu
-sehen und dort auch umzustellen.
+Die Anwendung läuft auf **Render**; die Region steht in `render.yaml` und
+ist `frankfurt`. Beides ist im Render-Dashboard unter dem Dienst
+nachzusehen. Ob die Angabe dort noch stimmt, gehört einmal geprüft —
+eine falsche Region in der Datenschutzerklärung ist eine falsche Angabe
+über den Ort der Verarbeitung.
 
 ## 3. Fristen
 
@@ -74,7 +75,7 @@ den du annimmst. Einmal, zehn Minuten:
 | **Anthropic** | Console → Settings → Legal/Compliance → DPA | Gleiches Thema; bei der API kein Training auf Kundendaten. |
 | **Stripe** | Im Stripe-DPA enthalten, gilt mit den Nutzungsbedingungen | Nichts weiter zu tun, aber einmal gelesen haben. |
 | **Resend** | Dashboard → Settings → Legal → DPA | Wird oft vergessen: **über Resend gehen Name, E-Mail und das komplette PDF deiner Endkunden.** Ohne DPA ist der Versand der Schwachpunkt. |
-| **Hoster (Vercel o. a.)** | Dashboard → Settings → Legal → DPA | |
+| **Render** (Hoster) | <https://render.com/privacy> → DPA anfordern bzw. annehmen | Dort läuft die ganze Anwendung; ohne DPA fehlt der wichtigste Vertrag. |
 | **Sentry** | nur falls du `SENTRY_DSN` setzt | Ohne die Variable geht nichts dorthin, dann entfällt es. |
 
 Danach: die Zeile `[Sentry, falls eingesetzt]` in der Datenschutzerklärung

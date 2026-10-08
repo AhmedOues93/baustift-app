@@ -47,7 +47,7 @@ interface Antwort {
 }
 
 // Wie viele KI-Anfragen ein Nutzer pro Minute stellen darf. Gezählt wird in
-// der Datenbank (siehe Migration 0007), nicht im Arbeitsspeicher: auf Vercel
+// der Datenbank (siehe Migration 0007), nicht im Arbeitsspeicher: beim Hoster
 // läuft die App in mehreren Instanzen, die sich keinen Speicher teilen — ein
 // Zähler im Prozess bremst dort effektiv niemanden.
 const RATE_LIMIT_MAX = 5;
