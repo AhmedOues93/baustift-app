@@ -2,7 +2,10 @@
 
 -- Rechte wie in Supabase für die Rolle "authenticated".
 grant select, insert, update, delete on all tables in schema public to app_user;
-grant execute on all functions in schema public to app_user;
+-- Kein pauschales EXECUTE: sonst würde dieser Test die expliziten Grants aus
+-- den Migrationen übergehen und eine versehentlich öffentliche RPC-Funktion
+-- trotzdem grün aussehen lassen. app_user erbt die Rolle authenticated.
+revoke execute on all functions in schema public from app_user;
 grant insert, select on auth.users to app_user;
 
 -- =========================================================================
@@ -360,9 +363,33 @@ begin
   end if;
 
   -- Ein anderer Betrieb ist davon nicht betroffen.
+  perform set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
   select public.ki_anfrage_erlaubt('22222222-2222-2222-2222-222222222222', 3, 60, 'angebot') into v_ok;
   if not v_ok then
     raise exception 'FEHLER: Bremse trifft den falschen Nutzer';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+
+  -- Eine fremde Kennung darf weder die Bremse noch einen Nummernkreis
+  -- anfassen. Der Parameter allein ist keine Berechtigung.
+  begin
+    perform public.ki_anfrage_erlaubt('22222222-2222-2222-2222-222222222222', 3, 60, 'angebot');
+    raise exception 'SICHERHEITSLÜCKE: Anfragebremse für fremden Betrieb aufrufbar';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    perform public.next_rechnung_nummer('22222222-2222-2222-2222-222222222222');
+    raise exception 'SICHERHEITSLÜCKE: Rechnungsnummer für fremden Betrieb aufrufbar';
+  exception when insufficient_privilege then
+    null;
+  end;
+
+  if has_function_privilege('anon', 'public.next_angebot_nummer(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.next_rechnung_nummer(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.ki_anfrage_erlaubt(uuid, integer, integer, text)', 'execute') then
+    raise exception 'SICHERHEITSLÜCKE: anonymer RPC-Zugriff auf interne Funktionen';
   end if;
 
   -- Mit kurzem Fenster ist sofort wieder Platz.
