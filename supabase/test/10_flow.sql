@@ -392,6 +392,26 @@ begin
     raise exception 'SICHERHEITSLÜCKE: anonymer RPC-Zugriff auf interne Funktionen';
   end if;
 
+  -- Jede privilegierte Funktion hat einen festen, leeren Suchpfad. Das ist
+  -- unabhängig von RLS: ohne diese Einstellung könnte ein Objektname später
+  -- in einer SECURITY-DEFINER-Funktion anders aufgelöst werden.
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and p.proname in (
+        'handle_new_user', 'ki_anfrage_erlaubt', 'next_angebot_nummer',
+        'next_rechnung_nummer', 'angebot_per_token',
+        'angebot_positionen_per_token', 'angebot_geoeffnet',
+        'angebot_entscheiden', 'angebot_id_per_token'
+      )
+      and not coalesce(p.proconfig, array[]::text[]) @> array['search_path=""']
+  ) then
+    raise exception 'SICHERHEITSLÜCKE: SECURITY-DEFINER-Funktion ohne leeren search_path';
+  end if;
+
   -- Mit kurzem Fenster ist sofort wieder Platz.
   select public.ki_anfrage_erlaubt('11111111-1111-1111-1111-111111111111', 3, 0, 'angebot') into v_ok;
   if not v_ok then

@@ -127,6 +127,7 @@ create or replace function public.paket_in_angebot(
 returns integer
 language plpgsql
 security invoker
+set search_path = ''
 as $$
 declare
   v_naechste integer;

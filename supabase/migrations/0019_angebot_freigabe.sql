@@ -84,7 +84,11 @@ returns table (
 )
 language sql
 security definer
-set search_path = public
+-- Der Aufruf ist öffentlich, aber die Funktion läuft privilegiert. Ein leerer
+-- Suchpfad verhindert, dass ein später angelegtes Objekt die Auflösung von
+-- Namen in diesem Kontext beeinflusst. Alle Tabellen unten sind deshalb
+-- ausdrücklich als public.<name> geschrieben.
+set search_path = ''
 stable
 as $$
   select
@@ -120,7 +124,7 @@ returns table (
 )
 language sql
 security definer
-set search_path = public
+set search_path = ''
 stable
 as $$
   select pos.pos_nr, pos.bezeichnung, pos.beschreibung, pos.menge,
@@ -144,7 +148,7 @@ create or replace function public.angebot_geoeffnet(p_token text)
 returns void
 language sql
 security definer
-set search_path = public
+set search_path = ''
 as $$
   update public.angebote
   set freigabe_geoeffnet_am = now()
@@ -171,7 +175,7 @@ create or replace function public.angebot_entscheiden(
 returns boolean
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_anzahl int;
@@ -181,7 +185,7 @@ begin
   end if;
 
   update public.angebote
-  set status            = p_entscheidung::angebot_status,
+  set status            = p_entscheidung::public.angebot_status,
       entschieden_am    = now(),
       entschieden_durch = 'kunde',
       -- Leere Eingaben nicht als leeren Text speichern.
@@ -207,7 +211,7 @@ create or replace function public.angebot_id_per_token(p_token text)
 returns table (angebot_id uuid, besitzer uuid)
 language sql
 security definer
-set search_path = public
+set search_path = ''
 stable
 as $$
   select id, user_id
