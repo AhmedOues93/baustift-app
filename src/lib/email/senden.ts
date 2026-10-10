@@ -70,6 +70,8 @@ export function angebotNachricht(args: {
   gueltigBis: string | null;
   ansprechpartner: string | null;
   telefon: string | null;
+  /** Der Link, über den der Kunde direkt zu- oder absagen kann. */
+  freigabeUrl?: string | null;
 }): { betreff: string; text: string } {
   const anrede = args.ansprechpartner
     ? `Guten Tag ${args.ansprechpartner},`
@@ -83,12 +85,25 @@ export function angebotNachricht(args: {
     ? `\n\nBei Rückfragen erreichen Sie uns unter ${args.telefon}.`
     : "\n\nBei Rückfragen melden Sie sich gern.";
 
+  /**
+   * Der Link zum Zu- oder Absagen.
+   *
+   * Er steht vor den Rückfragen und nicht am Ende: ein Kunde, der zusagen
+   * will, soll nicht erst durch den ganzen Text. Das PDF hängt trotzdem an —
+   * viele drucken es aus oder geben es weiter, und nicht jeder klickt auf
+   * Links in E-Mails.
+   */
+  const freigabe = args.freigabeUrl
+    ? `\n\nAnnehmen oder ablehnen können Sie direkt hier:\n${args.freigabeUrl}`
+    : "";
+
   return {
     betreff: `Angebot ${args.nummer}${args.titel ? ` — ${args.titel}` : ""}`,
     text:
       `${anrede}\n\n` +
       `anbei erhalten Sie unser Angebot${args.titel ? ` für ${args.titel}` : ""} als PDF.` +
       gueltig +
+      freigabe +
       rueckfragen +
       `\n\nMit freundlichen Grüssen\n${args.firmaName}`,
   };
@@ -242,4 +257,43 @@ export function mahnungNachricht(args: {
 function formatDatum(iso: string): string {
   const [jahr, monat, tag] = iso.slice(0, 10).split("-");
   return `${tag}.${monat}.${jahr}`;
+}
+
+/**
+ * Der Betrieb erfährt, dass der Kunde entschieden hat.
+ *
+ * Ohne diese Nachricht wäre die Kundenfreigabe eine halbe Funktion: die
+ * Zusage steht in der App, aber der Handwerker sitzt im Auto und schaut
+ * nicht hinein. Gerade die Zusage ist die Nachricht, auf die er wartet —
+ * und die Absage die, aus der er etwas lernt.
+ */
+export function entscheidungNachricht(args: {
+  nummer: string;
+  titel: string;
+  kundeName: string | null;
+  angenommen: boolean;
+  anmerkung: string | null;
+  link: string;
+}): { betreff: string; text: string } {
+  const wer = args.kundeName ?? "Der Kunde";
+  const was = args.titel ? ` (${args.titel})` : "";
+
+  const anmerkung = args.anmerkung
+    ? `\n\nDazugeschrieben hat er:\n„${args.anmerkung}“`
+    : "";
+
+  return {
+    betreff: args.angenommen
+      ? `Zusage: Angebot ${args.nummer}`
+      : `Absage: Angebot ${args.nummer}`,
+    text:
+      (args.angenommen
+        ? `${wer} hat Angebot ${args.nummer}${was} angenommen.`
+        : `${wer} hat Angebot ${args.nummer}${was} abgelehnt.`) +
+      anmerkung +
+      `\n\nIn Baustift ansehen:\n${args.link}` +
+      (args.angenommen
+        ? "\n\nDort kannst du daraus einen Auftrag oder direkt eine Rechnung machen."
+        : ""),
+  };
 }

@@ -13,6 +13,7 @@ import {
   statusSetzen,
   type PositionEingabe,
 } from "./actions";
+import { paketUebernehmen } from "@/app/(app)/pakete/actions";
 import { rechnungAusAngebot } from "@/app/(app)/rechnungen/actions";
 import { auftragAusAngebot } from "@/app/(app)/auftraege/actions";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
   type AngebotStatus,
   type Einheit,
   type Kunde,
+  type Leistungspaket,
   type Position,
 } from "@/types/database";
 
@@ -68,12 +70,18 @@ export function AngebotEditor({
   positionen,
   kunden,
   versandMoeglich,
+  freigabeUrl,
+  pakete,
 }: {
   angebot: Angebot;
   positionen: Position[];
   kunden: Kunde[];
   /** Ist der E-Mail-Versand überhaupt eingerichtet? */
   versandMoeglich: boolean;
+  /** Leistungspakete des Betriebs — leer heisst: der Knopf erscheint nicht. */
+  pakete: Leistungspaket[];
+  /** Link, unter dem der Kunde das Angebot sieht und entscheidet. */
+  freigabeUrl: string;
 }) {
   const router = useRouter();
 
@@ -102,6 +110,8 @@ export function AngebotEditor({
     { art: "fehler" | "erfolg"; text: string } | null
   >(null);
   const [loeschenOffen, setLoeschenOffen] = useState(false);
+  const [paketWahl, setPaketWahl] = useState("");
+  const [paketPending, paketStarten] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Beim ersten Rendern nicht speichern — sonst schreibt jedes Öffnen.
   const ersterLauf = useRef(true);
@@ -320,6 +330,36 @@ export function AngebotEditor({
         </p>
       ) : null}
 
+      {/* Was der Kunde gemacht hat ------------------------------------------
+          Die eine Information, die bisher fehlte: liegt das Angebot
+          ungelesen da, oder denkt er darüber nach? Und wenn er abgesagt
+          hat — warum? Ohne diesen Abschnitt wäre die Kundenfreigabe eine
+          Funktion, von der der Handwerker nichts mitbekommt. */}
+      {angebot.entschieden_durch === "kunde" ? (
+        <section
+          className={`rounded-karte p-4 ${
+            angebot.status === "angenommen"
+              ? "bg-erfolg-flaeche text-erfolg"
+              : "bg-warnung-flaeche text-warnung"
+          }`}
+        >
+          <p className="font-medium">
+            {angebot.status === "angenommen"
+              ? "Der Kunde hat zugesagt."
+              : "Der Kunde hat abgesagt."}
+            {angebot.entschieden_am ? ` ${formatDatum(angebot.entschieden_am)}` : ""}
+          </p>
+          {angebot.kunden_anmerkung ? (
+            <p className="mt-1 text-sm">„{angebot.kunden_anmerkung}“</p>
+          ) : null}
+        </section>
+      ) : angebot.status === "gesendet" && angebot.freigabe_geoeffnet_am ? (
+        <p className="rounded-feld bg-info-flaeche px-3 py-2.5 text-sm text-info">
+          Der Kunde hat das Angebot geöffnet —{" "}
+          {formatDatum(angebot.freigabe_geoeffnet_am)}. Entschieden hat er noch nicht.
+        </p>
+      ) : null}
+
       {/* Das Prüftor -------------------------------------------------------
           Solange hier etwas offen ist, geht das Angebot nicht raus — weder
           per E-Mail noch als "gesendet markiert" noch als Rechnung. Der
@@ -388,6 +428,50 @@ export function AngebotEditor({
           <IconPlus className="h-5 w-5" />
           Position hinzufügen
         </button>
+
+        {/* Leistungspaket -----------------------------------------------------
+            Erscheint nur, wenn es überhaupt Pakete gibt. Ein Knopf, hinter
+            dem nichts liegt, ist schlimmer als kein Knopf. */}
+        {pakete.length > 0 ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              value={paketWahl}
+              onChange={(e) => setPaketWahl(e.target.value)}
+              aria-label="Leistungspaket"
+              disabled={paketPending}
+              className="min-h-11 flex-1 rounded-feld border border-linie bg-flaeche px-3 text-base text-text focus:border-text focus:outline-none"
+            >
+              <option value="">Leistungspaket übernehmen…</option>
+              {pakete.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              variante="sekundaer"
+              disabled={!paketWahl || paketPending}
+              onClick={() => {
+                const id = paketWahl;
+                paketStarten(async () => {
+                  // Erst speichern: die Datenbank hängt die Paketzeilen
+                  // hinter die vorhandenen, und "vorhanden" heisst für sie
+                  // das, was wirklich gespeichert ist.
+                  await speichern();
+                  const ergebnis = await paketUebernehmen(angebot.id, id);
+                  if (ergebnis.fehler) {
+                    setVersandMeldung({ art: "fehler", text: ergebnis.fehler });
+                    return;
+                  }
+                  setPaketWahl("");
+                  router.refresh();
+                });
+              }}
+            >
+              {paketPending ? "Einen Moment…" : "Übernehmen"}
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       {/* Summen -------------------------------------------------------------- */}
@@ -454,12 +538,18 @@ export function AngebotEditor({
           <IconPdf className="h-5 w-5" />
         </a>
 
-        {/* Teilen: der Weg, den die meisten wirklich gehen — WhatsApp. */}
+        {/* Teilen: der Weg, den die meisten wirklich gehen — WhatsApp.
+            Mitgeschickt wird der Link zum Zu- oder Absagen: wer das Angebot
+            über WhatsApp bekommt, soll genauso antworten können wie über
+            E-Mail. Sonst ruft er an, und niemand trägt es nach. */}
         <TeilenKnopf
           pfad={`/api/angebote/${angebot.id}/pdf`}
           dateiname={`${angebot.nummer}.pdf`}
           titel={`Angebot ${angebot.nummer}`}
-          text={`Guten Tag,\n\nanbei unser Angebot${titel ? ` für ${titel}` : ""}.`}
+          text={
+            `Guten Tag,\n\nanbei unser Angebot${titel ? ` für ${titel}` : ""}.` +
+            `\n\nAnnehmen oder ablehnen können Sie direkt hier:\n${freigabeUrl}`
+          }
         />
 
         {angebot.status === "entwurf" ? (

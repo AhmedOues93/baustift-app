@@ -162,6 +162,76 @@ export type Angebot = {
   /** Nur im Piloten erhoben: Sprache oder Tastatur. */
   eingabe_art: EingabeArt | null;
   aufnahme_sekunden: number | null;
+  /** Schlüssel für den Link, über den der Kunde zusagt (0019_angebot_freigabe.sql). */
+  freigabe_token: string;
+  /** Wann der Kunde das Angebot zum ersten Mal geöffnet hat. */
+  freigabe_geoeffnet_am: string | null;
+  /** Hat der Betrieb nachgetragen oder der Kunde selbst entschieden? */
+  entschieden_durch: "betrieb" | "kunde" | null;
+  /** Was der Kunde beim Zu- oder Absagen dazugeschrieben hat. */
+  kunden_anmerkung: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Was die öffentliche Angebotsseite zu sehen bekommt — und sonst nichts. */
+export type AngebotFreigabe = {
+  id: string;
+  nummer: string;
+  titel: string;
+  status: AngebotStatus;
+  datum: string;
+  gueltig_bis: string | null;
+  netto: number;
+  mwst_satz: number;
+  mwst_betrag: number;
+  brutto: number;
+  notiz: string | null;
+  entschieden_am: string | null;
+  entschieden_durch: "betrieb" | "kunde" | null;
+  kunden_anmerkung: string | null;
+  kunde_name: string | null;
+  firma_name: string | null;
+  firma_strasse: string | null;
+  firma_plz: string | null;
+  firma_ort: string | null;
+  firma_telefon: string | null;
+  firma_email: string | null;
+  firma_kleinunternehmer: boolean;
+};
+
+export type FreigabePosition = {
+  pos_nr: number;
+  bezeichnung: string;
+  beschreibung: string | null;
+  menge: number;
+  einheit: Einheit;
+  einzelpreis: number;
+  gesamtpreis: number;
+};
+
+export type Leistungspaket = {
+  id: string;
+  user_id: string;
+  name: string;
+  beschreibung: string | null;
+  aktiv: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaketPosition = {
+  id: string;
+  paket_id: string;
+  pos_nr: number;
+  /** Verweis in den Katalog. Der Preis kommt beim Einfügen von dort. */
+  preisliste_id: string | null;
+  bezeichnung: string;
+  beschreibung: string | null;
+  menge: number;
+  einheit: Einheit;
+  /** Nur für Zeilen ohne Katalogeintrag. */
+  einzelpreis: number;
   created_at: string;
   updated_at: string;
 };
@@ -378,14 +448,46 @@ export type Database = {
         /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
         Relationships: [];
       };
+      leistungspakete: {
+        Row: Leistungspaket;
+        Insert: Omit<Leistungspaket, "id" | "created_at" | "updated_at" | "aktiv"> & {
+          id?: string;
+          aktiv?: boolean;
+        };
+        Update: Partial<Leistungspaket>;
+        Relationships: [];
+      };
+      paket_positionen: {
+        Row: PaketPosition;
+        Insert: Omit<PaketPosition, "id" | "created_at" | "updated_at"> & { id?: string };
+        Update: Partial<PaketPosition>;
+        Relationships: [];
+      };
       angebote: {
         Row: Angebot;
-        // Die Nachfass-Felder haben Vorgaben in der Datenbank: beim Anlegen
-        // wurde noch nie nachgehakt.
+        // Die Nachfass- und Freigabefelder haben Vorgaben in der Datenbank:
+        // beim Anlegen wurde noch nie nachgehakt, und den Schlüssel für den
+        // Kundenlink erzeugt Postgres selbst.
         Insert: Omit<
           Angebot,
-          "id" | "created_at" | "updated_at" | "nachgefasst_am" | "nachfassungen"
-        > & { id?: string; nachgefasst_am?: string | null; nachfassungen?: number };
+          | "id"
+          | "created_at"
+          | "updated_at"
+          | "nachgefasst_am"
+          | "nachfassungen"
+          | "freigabe_token"
+          | "freigabe_geoeffnet_am"
+          | "entschieden_durch"
+          | "kunden_anmerkung"
+        > & {
+          id?: string;
+          nachgefasst_am?: string | null;
+          nachfassungen?: number;
+          freigabe_token?: string;
+          freigabe_geoeffnet_am?: string | null;
+          entschieden_durch?: "betrieb" | "kunde" | null;
+          kunden_anmerkung?: string | null;
+        };
         Update: Partial<Angebot>;
         /** Von supabase-js verlangt; wir nutzen keine eingebetteten Joins. */
         Relationships: [];
@@ -504,6 +606,32 @@ export type Database = {
           /** Getrennte Zähler je Vorgang (0013): "angebot", "aufmass". */
           p_art?: string;
         };
+        Returns: boolean;
+      };
+      /** Öffentliche Angebotsfreigabe (0019_angebot_freigabe.sql). */
+      angebot_per_token: {
+        Args: { p_token: string };
+        Returns: AngebotFreigabe[];
+      };
+      angebot_positionen_per_token: {
+        Args: { p_token: string };
+        Returns: FreigabePosition[];
+      };
+      angebot_geoeffnet: {
+        Args: { p_token: string };
+        Returns: undefined;
+      };
+      /** Paket in ein Angebot übernehmen (0020_leistungspakete.sql). */
+      paket_in_angebot: {
+        Args: { p_paket_id: string; p_angebot_id: string };
+        Returns: number;
+      };
+      angebot_id_per_token: {
+        Args: { p_token: string };
+        Returns: { angebot_id: string; besitzer: string }[];
+      };
+      angebot_entscheiden: {
+        Args: { p_token: string; p_entscheidung: string; p_anmerkung?: string | null };
         Returns: boolean;
       };
       suche_preisliste: {

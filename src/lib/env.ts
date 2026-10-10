@@ -10,12 +10,32 @@
  * Components, Route Handlers oder Server Actions gelesen.
  */
 
-function required(name: string, value: string | undefined): string {
-  if (!value) {
-    throw new Error(
-      `Fehlende Umgebungsvariable: ${name}. Siehe .env.example und trage sie in .env.local ein.`,
+/**
+ * Eine fehlende Einstellung ist kein Betriebsunfall, sondern ein
+ * Einrichtungsfehler.
+ *
+ * Der Unterschied zählt: ein ausgefallener Dienst geht von selbst wieder,
+ * eine fehlende Variable nicht. Wer "Bitte noch einmal versuchen" liest,
+ * versucht es noch einmal — und noch einmal. Deshalb trägt der Fehler eine
+ * eigene Kennung, damit die Routen ihn unterscheiden können.
+ */
+export class KonfigurationsFehler extends Error {
+  readonly name = "KonfigurationsFehler";
+  constructor(readonly variable: string) {
+    super(
+      `Fehlende Umgebungsvariable: ${variable}. Lokal in .env.local eintragen ` +
+        `(siehe .env.example), im Betrieb bei Render. \`npm run bereit\` listet alle auf.`,
     );
   }
+}
+
+/** Erkennt den Fehler auch über Modulgrenzen hinweg. */
+export function istKonfigurationsFehler(fehler: unknown): boolean {
+  return fehler instanceof Error && fehler.name === "KonfigurationsFehler";
+}
+
+function required(name: string, value: string | undefined): string {
+  if (!value) throw new KonfigurationsFehler(name);
   return value;
 }
 
@@ -57,7 +77,19 @@ export const publicEnv = {
     const gesetzt = process.env.NEXT_PUBLIC_SITE_URL?.trim();
     if (gesetzt) return gesetzt.replace(/\/+$/, "");
 
-    // Vercel kennt seine Adresse selbst — für Vorschau-Bereitstellungen reicht das.
+    /**
+     * Der Hoster kennt seine Adresse selbst.
+     *
+     * Render stellt `RENDER_EXTERNAL_URL` zur Verfügung (vollständig, mit
+     * Schema). Achtung: die Variable steht nur zur LAUFZEIT bereit, nicht
+     * beim Bauen — alles, was ins Browser-Bundle wandert, braucht deshalb
+     * weiterhin NEXT_PUBLIC_SITE_URL. Hier hilft sie trotzdem, weil die
+     * Bestätigungs- und Stripe-Links serverseitig entstehen.
+     */
+    const render = process.env.RENDER_EXTERNAL_URL?.trim();
+    if (render) return render.replace(/\/+$/, "");
+
+    // Vercel nennt nur den Hostnamen, ohne Schema.
     const vercel = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
     if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
 

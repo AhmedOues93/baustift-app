@@ -5,7 +5,8 @@ import { AngebotEditor } from "./angebot-editor";
 import { IconZurueck } from "@/components/ui/icons";
 import { emailVerfuegbar } from "@/lib/email/senden";
 import { createClient } from "@/lib/supabase/server";
-import type { Angebot, Kunde, Position } from "@/types/database";
+import type { Angebot, Kunde, Leistungspaket, Position } from "@/types/database";
+import { freigabeLink } from "./freigabe";
 
 export const metadata = { title: "Angebot · Baustift" };
 
@@ -21,7 +22,7 @@ export default async function AngebotPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: angebot }, { data: positionen }, { data: kunden }] =
+  const [{ data: angebot }, { data: positionen }, { data: kunden }, { data: pakete }] =
     await Promise.all([
       supabase.from("angebote").select("*").eq("id", id).maybeSingle(),
       supabase
@@ -30,6 +31,7 @@ export default async function AngebotPage({
         .eq("angebot_id", id)
         .order("pos_nr"),
       supabase.from("kunden").select("*").order("name"),
+      supabase.from("leistungspakete").select("*").eq("aktiv", true).order("name"),
     ]);
 
   // RLS liefert für fremde Angebote schlicht nichts — 404 ist hier die
@@ -51,6 +53,8 @@ export default async function AngebotPage({
         positionen={(positionen ?? []) as Position[]}
         kunden={(kunden ?? []) as Kunde[]}
         versandMoeglich={emailVerfuegbar()}
+        freigabeUrl={freigabeLink(angebot.freigabe_token)}
+        pakete={(pakete ?? []) as Leistungspaket[]}
       />
     </div>
   );

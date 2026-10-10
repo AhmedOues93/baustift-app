@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { publicEnv, serverEnv } from "@/lib/env";
 import { stripe } from "@/lib/stripe/client";
+import { protokolliereFehler } from "@/lib/protokoll";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -22,12 +23,48 @@ export async function POST() {
 
   const { data: profil } = await supabase
     .from("profiles")
-    .select("stripe_customer_id, firma_name")
+    .select("stripe_customer_id, firma_name, subscription_status, stripe_subscription_id")
     .eq("id", user.id)
     .maybeSingle();
 
+  /**
+   * Wer schon zahlt, soll nicht versehentlich ein zweites Abo abschliessen.
+   * Der Knopf ist auf der Abo-Seite zwar ausgeblendet — aber ein zweiter
+   * Browsertab, ein doppelter Klick oder ein direkter Aufruf kommen daran
+   * vorbei, und dann zahlt jemand zweimal. Für die Verwaltung gibt es das
+   * Kundenportal.
+   */
+  if (profil?.subscription_status === "aktiv" && profil?.stripe_subscription_id) {
+    return NextResponse.json(
+      { fehler: "Du hast bereits ein laufendes Abo. Verwalten kannst du es im Kundenportal." },
+      { status: 409 },
+    );
+  }
+
   const s = stripe();
 
+  try {
+    return await sitzungAnlegen(s, supabase, user, profil ?? null);
+  } catch (fehler) {
+    /**
+     * Stripe nicht erreichbar, falscher Schlüssel, abgelaufene Preis-ID:
+     * ohne diesen Zweig wirft die Route durch und der Nutzer sieht eine
+     * leere Seite. 502 sagt, dass der Fehler nicht bei ihm liegt.
+     */
+    protokolliereFehler({ vorgang: "stripe.checkout", userId: user.id }, fehler);
+    return NextResponse.json(
+      { fehler: "Der Bezahlvorgang lässt sich gerade nicht starten. Bitte später nochmal." },
+      { status: 502 },
+    );
+  }
+}
+
+async function sitzungAnlegen(
+  s: ReturnType<typeof stripe>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string; email?: string },
+  profil: { stripe_customer_id: string | null; firma_name: string | null } | null,
+): Promise<NextResponse> {
   let kundenId = profil?.stripe_customer_id ?? null;
   if (!kundenId) {
     const kunde = await s.customers.create({

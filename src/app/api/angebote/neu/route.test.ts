@@ -274,6 +274,27 @@ describe("Speichern", () => {
   });
 });
 
+describe("wenn etwas nicht eingerichtet ist", () => {
+  it("sagt es und rät nicht zum nächsten Versuch", async () => {
+    // Fehlt ein Schlüssel, hilft kein zweiter Versuch. "Bitte versuche es
+    // noch einmal" schickt den Handwerker genau dorthin.
+    const { KonfigurationsFehler } = await import("@/lib/env");
+    extraktion = () => {
+      throw new KonfigurationsFehler("ANTHROPIC_API_KEY");
+    };
+
+    const antwort = await post();
+    const rumpf = await antwort.json();
+
+    // 503: der Dienst ist nicht gestört, er ist nicht eingerichtet.
+    expect(antwort.status).toBe(503);
+    expect(rumpf.fehler).toContain("liegt nicht an dir");
+    expect(rumpf.fehler).not.toContain("noch einmal");
+    // Und der Name der Variablen bleibt im Protokoll, nicht beim Nutzer.
+    expect(JSON.stringify(rumpf)).not.toContain("ANTHROPIC_API_KEY");
+  });
+});
+
 describe("wenn die KI nicht mitspielt", () => {
   it("meldet eine unmögliche Menge als Eingabefehler, nicht als Serverfehler", async () => {
     const { MengenFehler } = await import("@/lib/ai/matching");

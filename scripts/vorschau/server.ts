@@ -54,12 +54,27 @@ const ANGEBOTE = [
   notiz:"Angebot gültig 30 Tage. Ausführung ca. 5 Arbeitstage nach Materiallieferung.",
   pdf_path:null, gesendet_am:gesendet, entschieden_am:entschieden,
   nachgefasst_am:null, nachfassungen:0, created_at:tage(alter), updated_at:tage(alter),
+  // Freigabe-Schlüssel: fest und lesbar, damit der Rauchtest den Kundenlink
+  // ansteuern kann.
+  freigabe_token:`tok-${id}`,
+  freigabe_geoeffnet_am: id==="a4" ? tage(5) : null,
+  entschieden_durch: entschieden ? "kunde" : null,
+  kunden_anmerkung: id==="a3" ? "Passt, bitte im Mai anfangen." : null,
 }));
 const POSITIONEN = [
   ["Demontage alte Fliesen",8,"m2",28,false],["Fliesen verlegen 60x60",8,"m2",65,false],
   ["Bodengleiche Dusche inkl. Rinne",1,"pauschal",1450,true],["WC tauschen inkl. Montage",1,"stk",380,false],
   ["Entsorgung Bauschutt",1,"pauschal",180,false],
 ].map(([bezeichnung,menge,einheit,einzelpreis,pruefen]: any,i) => ({ id:`pos${i+1}`, angebot_id:"a1", pos_nr:i+1, bezeichnung, beschreibung:i<2?"Inkl. Material und Entsorgung.":null, menge, einheit, einzelpreis, gesamtpreis:menge*einzelpreis, preisliste_id:null, zu_pruefen:pruefen, ki_konfidenz:pruefen?0.42:0.95, created_at:"", updated_at:"" }));
+
+// Positionen für die verschickten Angebote — sonst zeigt die Kundenseite
+// eine leere Liste, und der Rauchtest prüft nichts.
+POSITIONEN.push(
+  { id:"pos-a2-1", angebot_id:"a2", pos_nr:1, bezeichnung:"Heizkörper demontieren und entsorgen", beschreibung:null, menge:4, einheit:"stk", einzelpreis:68, gesamtpreis:272, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+  { id:"pos-a2-2", angebot_id:"a2", pos_nr:2, bezeichnung:"Heizkörper Typ 22 liefern und montieren", beschreibung:"Inkl. Thermostatventil.", menge:4, einheit:"stk", einzelpreis:312.58, gesamtpreis:1250.32, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+  { id:"pos-a2-3", angebot_id:"a2", pos_nr:3, bezeichnung:"Anlage entlüften und einregulieren", beschreibung:null, menge:3, einheit:"h", einzelpreis:92, gesamtpreis:276, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+  { id:"pos-a3-1", angebot_id:"a3", pos_nr:1, bezeichnung:"Wasserhahn tauschen inkl. Siphon", beschreibung:null, menge:1, einheit:"pauschal", einzelpreis:156.3, gesamtpreis:156.3, preisliste_id:null, zu_pruefen:false, ki_konfidenz:0.95, created_at:"", updated_at:"" },
+);
 
 const RECHNUNGEN = [
   ["r1","k5","RE-2026-0018","Wasserhahn + Siphon","gestellt",156.3,29.7,186,3,20,null],
@@ -127,7 +142,16 @@ function berechnet(tabelle:string, w:any){
   return { wert, einheit };
 }
 
-const TABELLEN: Record<string, any[]> = { profiles:[PROFIL], kunden:KUNDEN, preisliste:PREISE, angebote:ANGEBOTE, positionen:POSITIONEN, rechnungen:RECHNUNGEN, rechnung_positionen:RECHNUNG_POSITIONEN, ki_nutzung:[], feedback:[], aufmass:AUFMASS, aufmass_positionen:AUFMASS_POSITIONEN };
+const PAKETE = [
+  { id:"pk1", user_id:"u1", name:"Bad komplett bis 10 m²", beschreibung:"Standardumfang ohne Elektro.", aktiv:true, created_at:"", updated_at:"" },
+  { id:"pk2", user_id:"u1", name:"Wartung Gastherme", beschreibung:null, aktiv:true, created_at:"", updated_at:"" },
+];
+const PAKET_POSITIONEN = [
+  { id:"pz1", paket_id:"pk1", pos_nr:1, preisliste_id:"p1", bezeichnung:"Fliesen verlegen 60x60", beschreibung:null, menge:10, einheit:"m2", einzelpreis:0, created_at:"", updated_at:"" },
+  { id:"pz2", paket_id:"pk1", pos_nr:2, preisliste_id:null, bezeichnung:"Entsorgung Bauschutt", beschreibung:null, menge:1, einheit:"pauschal", einzelpreis:180, created_at:"", updated_at:"" },
+];
+
+const TABELLEN: Record<string, any[]> = { profiles:[PROFIL], leistungspakete:PAKETE, paket_positionen:PAKET_POSITIONEN, kunden:KUNDEN, preisliste:PREISE, angebote:ANGEBOTE, positionen:POSITIONEN, rechnungen:RECHNUNGEN, rechnung_positionen:RECHNUNG_POSITIONEN, ki_nutzung:[], feedback:[], aufmass:AUFMASS, aufmass_positionen:AUFMASS_POSITIONEN };
 class Abfrage {
   private zeilen:any[]; private kopfOnly=false; private zaehlen=false;
   private tabelle:string;
@@ -178,7 +202,35 @@ class Abfrage {
 export function createClient(){ return {
   auth:{ getUser: async()=>({data:{user:USER},error:null}), signOut: async()=>({error:null}) },
   from:(t:string)=>new Abfrage(t),
-  rpc: async(n:string)=> n==="angebote_diesen_monat"?{data:6,error:null}:{data:null,error:null},
+  rpc: async(n:string, a:any={})=> {
+    if (n==="angebote_diesen_monat") return {data:6,error:null};
+    // Die öffentliche Angebotsfreigabe — in der echten App eine
+    // security-definer-Funktion in Postgres (0019_angebot_freigabe.sql).
+    const ang = ANGEBOTE.find((x:any)=> x.freigabe_token===a.p_token && x.status!=="entwurf");
+    if (n==="angebot_per_token") {
+      if (!ang) return {data:[],error:null};
+      const k = KUNDEN.find((x:any)=> x.id===ang.kunde_id);
+      return {data:[{ id:ang.id, nummer:ang.nummer, titel:ang.titel, status:ang.status,
+        datum:ang.datum, gueltig_bis:ang.gueltig_bis, netto:ang.netto, mwst_satz:ang.mwst_satz,
+        mwst_betrag:ang.mwst_betrag, brutto:ang.brutto, notiz:ang.notiz,
+        entschieden_am:ang.entschieden_am, entschieden_durch:ang.entschieden_durch,
+        kunden_anmerkung:ang.kunden_anmerkung, kunde_name:k?.name ?? null,
+        firma_name:PROFIL.firma_name, firma_strasse:PROFIL.strasse, firma_plz:PROFIL.plz,
+        firma_ort:PROFIL.ort, firma_telefon:PROFIL.telefon, firma_email:PROFIL.email,
+        firma_kleinunternehmer:PROFIL.kleinunternehmer }],error:null};
+    }
+    if (n==="angebot_positionen_per_token") {
+      if (!ang) return {data:[],error:null};
+      return {data:POSITIONEN.filter((p:any)=>p.angebot_id===ang.id),error:null};
+    }
+    if (n==="angebot_id_per_token") {
+      return {data: ang ? [{angebot_id:ang.id, besitzer:ang.user_id}] : [], error:null};
+    }
+    if (n==="angebot_geoeffnet") return {data:null,error:null};
+    if (n==="paket_in_angebot") return {data:2,error:null};
+    if (n==="angebot_entscheiden") return {data:Boolean(ang && ang.status==="gesendet"),error:null};
+    return {data:null,error:null};
+  },
   storage:{ from:()=>({ createSignedUrl:async()=>({data:null,error:null}), download:async()=>({data:null,error:null}), upload:async()=>({data:null,error:null}), remove:async()=>({data:null,error:null}) }) },
 } as any; }
 export const createAdminClient = createClient;

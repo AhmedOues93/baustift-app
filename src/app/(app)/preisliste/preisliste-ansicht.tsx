@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useMemo, useState } from "react";
 
 import { ImportFormular } from "./import-formular";
@@ -62,6 +64,12 @@ export function PreislisteAnsicht({
           <p className="mt-1.5 text-sm text-text-leise">
             <span className="zahl">{eintraege.length}</span>{" "}
             {eintraege.length === 1 ? "Eintrag" : "Einträge"}
+            {" · "}
+            {/* Pakete stehen nicht in der Hauptnavigation: sie werden aus
+                der Preisliste heraus gebaut und gehören hierher. */}
+            <Link href="/pakete" className="underline underline-offset-2">
+              Leistungspakete
+            </Link>
           </p>
         </div>
         {/* Auf dem Desktop oben rechts; mobil übernimmt der FAB unten. */}

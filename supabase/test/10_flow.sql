@@ -2,7 +2,10 @@
 
 -- Rechte wie in Supabase für die Rolle "authenticated".
 grant select, insert, update, delete on all tables in schema public to app_user;
-grant execute on all functions in schema public to app_user;
+-- Kein pauschales EXECUTE: sonst würde dieser Test die expliziten Grants aus
+-- den Migrationen übergehen und eine versehentlich öffentliche RPC-Funktion
+-- trotzdem grün aussehen lassen. app_user erbt die Rolle authenticated.
+revoke execute on all functions in schema public from app_user;
 grant insert, select on auth.users to app_user;
 
 -- =========================================================================
@@ -360,9 +363,53 @@ begin
   end if;
 
   -- Ein anderer Betrieb ist davon nicht betroffen.
+  perform set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
   select public.ki_anfrage_erlaubt('22222222-2222-2222-2222-222222222222', 3, 60, 'angebot') into v_ok;
   if not v_ok then
     raise exception 'FEHLER: Bremse trifft den falschen Nutzer';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+
+  -- Eine fremde Kennung darf weder die Bremse noch einen Nummernkreis
+  -- anfassen. Der Parameter allein ist keine Berechtigung.
+  begin
+    perform public.ki_anfrage_erlaubt('22222222-2222-2222-2222-222222222222', 3, 60, 'angebot');
+    raise exception 'SICHERHEITSLÜCKE: Anfragebremse für fremden Betrieb aufrufbar';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    perform public.next_rechnung_nummer('22222222-2222-2222-2222-222222222222');
+    raise exception 'SICHERHEITSLÜCKE: Rechnungsnummer für fremden Betrieb aufrufbar';
+  exception when insufficient_privilege then
+    null;
+  end;
+
+  if has_function_privilege('anon', 'public.next_angebot_nummer(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.next_rechnung_nummer(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.ki_anfrage_erlaubt(uuid, integer, integer, text)', 'execute') then
+    raise exception 'SICHERHEITSLÜCKE: anonymer RPC-Zugriff auf interne Funktionen';
+  end if;
+
+  -- Jede privilegierte Funktion hat einen festen, leeren Suchpfad. Das ist
+  -- unabhängig von RLS: ohne diese Einstellung könnte ein Objektname später
+  -- in einer SECURITY-DEFINER-Funktion anders aufgelöst werden.
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and p.proname in (
+        'handle_new_user', 'ki_anfrage_erlaubt', 'next_angebot_nummer',
+        'next_rechnung_nummer', 'angebot_per_token',
+        'angebot_positionen_per_token', 'angebot_geoeffnet',
+        'angebot_entscheiden', 'angebot_id_per_token'
+      )
+      and not coalesce(p.proconfig, array[]::text[]) @> array['search_path=""']
+  ) then
+    raise exception 'SICHERHEITSLÜCKE: SECURITY-DEFINER-Funktion ohne leeren search_path';
   end if;
 
   -- Mit kurzem Fenster ist sofort wieder Platz.
@@ -700,6 +747,333 @@ begin
   end if;
 
   raise notice '29. RLS -> fremde Aufträge und Dokumentation unsichtbar';
+end $$;
+
+reset role;
+
+-- =========================================================================
+-- 30–33  Kundenannahme per Link
+-- =========================================================================
+-- Ein öffentlicher Link ist eine Tür in die Datenbank. Geprüft wird deshalb
+-- nicht nur, dass die Annahme funktioniert, sondern vor allem, was durch
+-- diese Tür NICHT zu sehen ist.
+--
+-- Weiter oben wurde auf den zweiten Betrieb umgeschaltet; hier zählt wieder
+-- der erste.
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+set role app_user;
+
+do $$
+declare
+  v_angebot uuid;
+  v_token   text;
+  v_treffer int;
+begin
+  insert into public.angebote (user_id, kunde_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', null, 'AN-2026-0900',
+          'Freigabe-Test', 'entwurf', current_date, current_date + 30, 19)
+  returning id, freigabe_token into v_angebot, v_token;
+
+  insert into public.positionen (angebot_id, pos_nr, bezeichnung, menge, einheit, einzelpreis)
+  values (v_angebot, 1, 'Fliesen verlegen', 8, 'm2', 52.00);
+
+  if v_token is null or length(v_token) < 30 then
+    raise exception 'Freigabe-Schlüssel fehlt oder ist zu kurz: %', v_token;
+  end if;
+
+  -- Ein Entwurf ist nicht freigegeben, auch nicht über den Link.
+  select count(*) into v_treffer from public.angebot_per_token(v_token);
+  if v_treffer <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: Entwurf über den Link sichtbar';
+  end if;
+
+  update public.angebote set status = 'gesendet', gesendet_am = now() where id = v_angebot;
+
+  select count(*) into v_treffer from public.angebot_per_token(v_token);
+  if v_treffer <> 1 then
+    raise exception 'Verschicktes Angebot ist über den Link nicht zu sehen';
+  end if;
+
+  raise notice '30. Freigabe -> Entwurf bleibt zu, verschicktes Angebot ist sichtbar';
+end $$;
+
+reset role;
+
+-- Jetzt als nicht angemeldeter Besucher — genau das ist der Kunde.
+set role app_anon;
+
+do $$
+declare
+  v_treffer int;
+  v_tabelle text;
+begin
+  /*
+   * Der Besucher kennt nur den Link. An die Tabellen selbst kommt er nicht
+   * heran — entweder fehlt ihm schon das Recht darauf, oder RLS gibt ihm
+   * keine Zeile. Beides ist in Ordnung, und beides wird hier zugelassen:
+   * in dieser Testdatenbank fehlt das Recht, in Supabase greift RLS. Nicht
+   * in Ordnung wäre nur eine Zeile.
+   */
+  foreach v_tabelle in array array['angebote', 'positionen', 'preisliste', 'kunden', 'rechnungen']
+  loop
+    begin
+      execute format('select count(*) from public.%I', v_tabelle) into v_treffer;
+      if v_treffer <> 0 then
+        raise exception 'SICHERHEITSLÜCKE: Besucher ohne Anmeldung sieht % Zeilen in %', v_treffer, v_tabelle;
+      end if;
+    exception
+      when insufficient_privilege then
+        null; -- noch besser: er darf die Tabelle gar nicht erst ansehen.
+    end;
+  end loop;
+
+  raise notice '31. Freigabe -> ohne Anmeldung ist keine Tabelle lesbar';
+end $$;
+
+reset role;
+
+-- Den Schlüssel holt sich der Test als Betrieb, der Besucher bekommt ihn
+-- im Link — genau wie in Wirklichkeit.
+set role app_user;
+do $$
+declare v_token text;
+begin
+  select freigabe_token into v_token from public.angebote where nummer = 'AN-2026-0900';
+  perform set_config('test.token', v_token, false);
+end $$;
+reset role;
+
+set role app_anon;
+
+do $$
+declare
+  v_token  text := current_setting('test.token');
+  v_zeile  record;
+  v_anzahl int;
+  v_ok     boolean;
+begin
+  select * into v_zeile from public.angebot_per_token(v_token);
+  if v_zeile.nummer <> 'AN-2026-0900' then
+    raise exception 'Angebot über den Link nicht gefunden';
+  end if;
+  if v_zeile.firma_name is null then
+    raise exception 'Firmendaten fehlen auf der öffentlichen Seite';
+  end if;
+
+  select count(*) into v_anzahl from public.angebot_positionen_per_token(v_token);
+  if v_anzahl <> 1 then
+    raise exception 'Positionen über den Link: % statt 1', v_anzahl;
+  end if;
+
+  -- Ein falscher Schlüssel gibt nichts her.
+  select count(*) into v_anzahl from public.angebot_per_token('offensichtlich-falsch');
+  if v_anzahl <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: falscher Schlüssel liefert ein Angebot';
+  end if;
+
+  -- Öffnen wird einmal vermerkt.
+  perform public.angebot_geoeffnet(v_token);
+
+  -- Annehmen.
+  v_ok := public.angebot_entscheiden(v_token, 'angenommen', '  Bitte im Mai anfangen.  ');
+  if not v_ok then raise exception 'Annahme wurde nicht übernommen'; end if;
+
+  -- Ein zweites Mal geht nicht — auch nicht mit einer anderen Entscheidung.
+  v_ok := public.angebot_entscheiden(v_token, 'abgelehnt', 'doch nicht');
+  if v_ok then
+    raise exception 'SICHERHEITSLÜCKE: Entscheidung liess sich nachträglich ändern';
+  end if;
+
+  -- Und Unsinn als Entscheidung wird gar nicht erst angenommen.
+  v_ok := public.angebot_entscheiden(v_token, 'storniert', null);
+  if v_ok then raise exception 'Unbekannte Entscheidung wurde angenommen'; end if;
+
+  raise notice '32. Freigabe -> Kunde kann einmal entscheiden, danach steht es fest';
+end $$;
+
+reset role;
+
+set role app_user;
+
+do $$
+declare v record;
+begin
+  select * into v from public.angebote where nummer = 'AN-2026-0900';
+
+  if v.status::text <> 'angenommen' then
+    raise exception 'Status nach Kundenannahme: % statt angenommen', v.status;
+  end if;
+  if v.entschieden_durch <> 'kunde' then
+    raise exception 'Entscheidung nicht dem Kunden zugeschrieben: %', v.entschieden_durch;
+  end if;
+  if v.entschieden_am is null then
+    raise exception 'Zeitpunkt der Entscheidung fehlt';
+  end if;
+  if v.kunden_anmerkung <> 'Bitte im Mai anfangen.' then
+    raise exception 'Anmerkung nicht sauber übernommen: %', quote_literal(v.kunden_anmerkung);
+  end if;
+  if v.freigabe_geoeffnet_am is null then
+    raise exception 'Öffnen wurde nicht vermerkt';
+  end if;
+
+  raise notice '33. Freigabe -> Betrieb sieht Entscheidung, Anmerkung und wann geöffnet wurde';
+end $$;
+
+reset role;
+
+-- =========================================================================
+-- 34–36  Leistungspakete
+-- =========================================================================
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+set role app_user;
+
+do $$
+declare
+  v_paket   uuid;
+  v_angebot uuid;
+  v_preis   uuid;
+  v_anzahl  int;
+  v_zeile   record;
+begin
+  select id into v_preis from public.preisliste
+  where user_id = '11111111-1111-1111-1111-111111111111' limit 1;
+
+  insert into public.leistungspakete (user_id, name)
+  values ('11111111-1111-1111-1111-111111111111', 'Bad komplett bis 10 m²')
+  returning id into v_paket;
+
+  insert into public.paket_positionen (paket_id, pos_nr, preisliste_id, bezeichnung, menge, einheit, einzelpreis)
+  values
+    (v_paket, 1, v_preis, 'Fliesen verlegen', 10, 'm2', 0),
+    -- Zeile ohne Katalogeintrag: der Preis steht im Paket.
+    (v_paket, 2, null, 'Entsorgung Bauschutt', 1, 'pauschal', 180);
+
+  insert into public.angebote (user_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', 'AN-2026-0910', 'Paket-Test',
+          'entwurf', current_date, current_date + 30, 19)
+  returning id into v_angebot;
+
+  -- Eine Zeile steht schon drin: das Paket muss dahinter einsortiert werden.
+  insert into public.positionen (angebot_id, pos_nr, bezeichnung, menge, einheit, einzelpreis)
+  values (v_angebot, 1, 'Anfahrt', 1, 'pauschal', 45);
+
+  v_anzahl := public.paket_in_angebot(v_paket, v_angebot);
+  if v_anzahl <> 2 then
+    raise exception 'Paket hat % Zeilen eingefügt statt 2', v_anzahl;
+  end if;
+
+  select count(*) into v_anzahl from public.positionen where angebot_id = v_angebot;
+  if v_anzahl <> 3 then
+    raise exception 'Angebot hat % Zeilen statt 3 — die vorhandene wurde überschrieben', v_anzahl;
+  end if;
+
+  -- Der Preis kommt aus dem Katalog, nicht aus dem Paket.
+  select * into v_zeile from public.positionen
+  where angebot_id = v_angebot and bezeichnung = 'Fliesen verlegen';
+  if v_zeile.einzelpreis <> (select einzelpreis from public.preisliste where id = v_preis) then
+    raise exception 'Paketpreis kommt nicht aus der Preisliste: %', v_zeile.einzelpreis;
+  end if;
+  if v_zeile.zu_pruefen then
+    raise exception 'Zeile mit gültigem Katalogeintrag ist unnötig als zu prüfen markiert';
+  end if;
+  if v_zeile.pos_nr <> 2 then
+    raise exception 'Paketzeile einsortiert auf %, erwartet 2', v_zeile.pos_nr;
+  end if;
+
+  -- Die Zeile ohne Katalogeintrag behält ihren Preis, wird aber markiert.
+  select * into v_zeile from public.positionen
+  where angebot_id = v_angebot and bezeichnung = 'Entsorgung Bauschutt';
+  if v_zeile.einzelpreis <> 180 then
+    raise exception 'Freie Paketzeile hat Preis % statt 180', v_zeile.einzelpreis;
+  end if;
+  if not v_zeile.zu_pruefen then
+    raise exception 'Zeile ohne Katalogeintrag müsste zu prüfen sein';
+  end if;
+
+  raise notice '34. Paket -> Zeilen angehängt, Preis aus dem Katalog, freie Zeile markiert';
+end $$;
+
+-- Preisänderung im Katalog schlägt auf das nächste Angebot durch.
+do $$
+declare
+  v_paket   uuid;
+  v_angebot uuid;
+  v_preis   uuid;
+  v_neu     numeric;
+begin
+  select id into v_paket from public.leistungspakete where name = 'Bad komplett bis 10 m²';
+  select id into v_preis from public.preisliste
+  where user_id = '11111111-1111-1111-1111-111111111111' limit 1;
+
+  update public.preisliste set einzelpreis = 99.00 where id = v_preis;
+
+  insert into public.angebote (user_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('11111111-1111-1111-1111-111111111111', 'AN-2026-0911', 'Paket-Test 2',
+          'entwurf', current_date, current_date + 30, 19)
+  returning id into v_angebot;
+
+  perform public.paket_in_angebot(v_paket, v_angebot);
+
+  select einzelpreis into v_neu from public.positionen
+  where angebot_id = v_angebot and bezeichnung = 'Fliesen verlegen';
+
+  -- Genau dafür speichert ein Paket Verweise und keine Preise: wer seine
+  -- Sätze erhöht, soll das nicht in zwölf Paketen nachpflegen müssen.
+  if v_neu <> 99.00 then
+    raise exception 'Paket nimmt den alten Preis % statt 99,00', v_neu;
+  end if;
+
+  raise notice '35. Paket -> Preisänderung im Katalog wirkt sofort';
+end $$;
+
+-- Für den Fremdzugriffstest: die Kennung merken, als hätte jemand sie
+-- mitgeschnitten. Raten liesse sie sich nicht.
+do $$
+begin
+  perform set_config('test.fremdes_paket',
+    (select id::text from public.leistungspakete where name = 'Bad komplett bis 10 m²'), false);
+end $$;
+
+reset role;
+
+-- Fremde Pakete bleiben fremd.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+set role app_user;
+
+do $$
+declare
+  v int;
+  v_fremdes uuid;
+  v_eigenes uuid;
+begin
+  select count(*) into v from public.leistungspakete;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremdes Paket sichtbar (%)', v; end if;
+
+  select count(*) into v from public.paket_positionen;
+  if v <> 0 then raise exception 'SICHERHEITSLÜCKE: fremde Paketzeilen sichtbar (%)', v; end if;
+
+  -- Und es lässt sich auch nicht blind in ein eigenes Angebot ziehen: die
+  -- Funktion läuft als Aufrufer, sieht das fremde Paket also gar nicht.
+  insert into public.angebote (user_id, nummer, titel, status, datum, gueltig_bis, mwst_satz)
+  values ('22222222-2222-2222-2222-222222222222', 'AN-2026-0912', 'Fremdzugriff',
+          'entwurf', current_date, current_date + 30, 19)
+  returning id into v_eigenes;
+
+  -- Die Kennung des fremden Pakets ist nicht zu erraten; für den Test wird
+  -- sie direkt gesetzt, als hätte jemand sie mitgeschnitten.
+  v_fremdes := current_setting('test.fremdes_paket')::uuid;
+
+  v := public.paket_in_angebot(v_fremdes, v_eigenes);
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: fremdes Paket in eigenes Angebot kopiert (% Zeilen)', v;
+  end if;
+
+  select count(*) into v from public.positionen where angebot_id = v_eigenes;
+  if v <> 0 then
+    raise exception 'SICHERHEITSLÜCKE: % Zeilen aus fremdem Paket angelegt', v;
+  end if;
+
+  raise notice '36. RLS -> fremdes Paket weder sichtbar noch übernehmbar';
 end $$;
 
 reset role;

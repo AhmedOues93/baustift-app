@@ -170,15 +170,21 @@ const stil = StyleSheet.create({
     color: FARBE.leise,
   },
   fussSpalte: { width: "32%" },
-  seitenzahl: {
-    position: "absolute",
-    bottom: 18,
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    fontSize: 7.5,
-    color: FARBE.leise,
-  },
+  /**
+   * Die Belegnummer in der Fusszeile.
+   *
+   * Hier stand eine Seitenzahl ("Seite 2 von 3"), erzeugt über die
+   * `render`-Eigenschaft von @react-pdf. Die hat in diesem Dokument nichts
+   * ausgegeben: in einem isolierten Testdokument funktioniert sie, hier
+   * blieb die Zeile leer — und ein Element mit `render` riss sogar die
+   * Fusszeile mit, in der es stand. Belegt mit gerenderten PDFs, nicht
+   * vermutet; die Ursache ist offen.
+   *
+   * Statt einer Zahl, auf die kein Verlass ist, steht nun die Belegnummer
+   * auf jeder Seite. Sie löst denselben Zweck zum grossen Teil: man sieht
+   * jeder Seite an, zu welchem Angebot sie gehört.
+   */
+  belegnummer: { marginTop: 3, color: FARBE.leise },
 });
 
 export interface BelegPdfProps {
@@ -260,7 +266,11 @@ export function BelegPdf({
               ) : null}
             </>
           ) : (
-            <Text style={{ color: FARBE.leise }}>— kein Kunde zugeordnet —</Text>
+            /* Kein Kunde zugeordnet: das Feld bleibt leer. Vorher stand hier
+               „— kein Kunde zugeordnet —“ — eine Meldung aus der Anwendung,
+               mitten im Anschriftenfeld eines Dokuments, das ausgedruckt und
+               verschickt wird. Leer lassen heisst: Platz zum Eintragen. */
+            <Text> </Text>
           )}
         </View>
 
@@ -286,8 +296,13 @@ export function BelegPdf({
 
         {beleg.titel ? <Text style={stil.projekt}>{beleg.titel}</Text> : null}
 
-        {/* --- Positionen --- */}
-        <View style={stil.tabellenKopf}>
+        {/* --- Positionen ---
+            `fixed` wiederholt den Kopf auf jeder Folgeseite. Ohne ihn stehen
+            auf Seite 2 vier Spalten mit Zahlen nebeneinander, und der Kunde
+            muss raten, welche davon der Einzelpreis ist und welche die
+            Gesamtsumme. Bei einem verbindlichen Angebot ist das keine
+            Kleinigkeit. */}
+        <View style={stil.tabellenKopf} fixed>
           <Text style={stil.spPos}>Pos</Text>
           <Text style={stil.spLeistung}>Leistung</Text>
           <Text style={stil.spMenge}>Menge</Text>
@@ -355,7 +370,10 @@ export function BelegPdf({
           </Text>
         ) : null}
 
-        {/* --- Fusszeile mit den Pflichtangaben --- */}
+        {/* --- Fusszeile mit den Pflichtangaben ---
+            Die Belegnummer steht mit in der Fusszeile, also auf JEDER Seite.
+            Bei einem mehrseitigen Angebot ist sonst nicht zu erkennen, wozu
+            eine einzelne Seite gehört — und ob eine fehlt. */}
         <View style={stil.fuss} fixed>
           <View style={stil.fussSpalte}>
             <Text>{firma.firma_name}</Text>
@@ -373,16 +391,11 @@ export function BelegPdf({
             {firma.bank_name ? <Text>{firma.bank_name}</Text> : null}
             {firma.iban ? <Text>IBAN {firma.iban}</Text> : null}
             {firma.bic ? <Text>BIC {firma.bic}</Text> : null}
+            <Text style={stil.belegnummer}>
+              {ueberschrift} {beleg.nummer}
+            </Text>
           </View>
         </View>
-
-        <Text
-          style={stil.seitenzahl}
-          render={({ pageNumber, totalPages }) =>
-            totalPages > 1 ? `Seite ${pageNumber} von ${totalPages}` : ""
-          }
-          fixed
-        />
       </Page>
     </Document>
   );

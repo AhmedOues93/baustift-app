@@ -79,24 +79,34 @@ echo "→ Bauen"
 export NEXT_PUBLIC_SITE_URL="http://localhost:$PORT"
 export NEXT_PUBLIC_SUPABASE_URL="https://beispiel.supabase.co"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="rauchtest"
-export SUPABASE_SERVICE_ROLE_KEY="rauchtest"
-export ANTHROPIC_API_KEY="sk-ant-rauchtest"
-export OPENAI_API_KEY="sk-rauchtest"
-export RESEND_API_KEY="re_rauchtest"
+# Erkennbare Werte: nach dem Bauen wird geprüft, dass keiner davon im
+# Browser-Bundle gelandet ist. Ein serverseitiger Schlüssel im Bundle wäre
+# an jedem Besucher ausgeliefert — und niemand würde es sehen.
+export SUPABASE_SERVICE_ROLE_KEY="RAUCHTESTGEHEIMNIS-servicerole"
+export ANTHROPIC_API_KEY="sk-ant-RAUCHTESTGEHEIMNIS-anthropic"
+export OPENAI_API_KEY="sk-RAUCHTESTGEHEIMNIS-openai"
+export RESEND_API_KEY="re_RAUCHTESTGEHEIMNIS-resend"
+export STRIPE_SECRET_KEY="sk_test_RAUCHTESTGEHEIMNIS-stripe"
+export STRIPE_WEBHOOK_SECRET="whsec_RAUCHTESTGEHEIMNIS-webhook"
+export STRIPE_PRICE_ID="price_rauchtest"
 export RESEND_ABSENDER="Rauchtest <test@example.de>"
 if ! npm run build > "$SICHERUNG/build.log" 2>&1; then
-  # next/font lädt die Schriften zur Bauzeit von Google. Ist der Host im Netz
-  # dieser Umgebung gesperrt, scheitert der Build daran — und das ist kein
-  # Befund über die Anwendung. Wer dem nachgeht, sucht sonst stundenlang einen
-  # Fehler, den es nicht gibt.
-  if grep -q "next-font-loader\|font/google" "$SICHERUNG/build.log"; then
-    echo
-    echo "⚠ Der Build kam nicht an die Schriften (next/font lädt sie von Google)."
-    echo "  Das ist ein Netzproblem dieser Umgebung, kein Fehler der Anwendung."
-    echo "  Nach einem erfolgreichen Build liegen sie im Cache; dann läuft es."
-    exit 2
-  fi
   tail -30 "$SICHERUNG/build.log"
+  exit 1
+fi
+
+echo "→ Geheimnisse im ausgelieferten JavaScript"
+gefunden=0
+for teil in servicerole anthropic openai resend stripe webhook; do
+  if grep -rq "RAUCHTESTGEHEIMNIS-$teil" .next/static 2>/dev/null; then
+    echo "  ✗ $teil steht im ausgelieferten JavaScript"
+    gefunden=$((gefunden + 1))
+  fi
+done
+if [ "$gefunden" -eq 0 ]; then
+  echo "  ✓ keiner im statischen Bundle (die Antworten werden unten mitgeprüft)"
+else
+  echo "  Ein serverseitiger Schlüssel im Bundle geht an jeden Besucher."
   exit 1
 fi
 
@@ -152,18 +162,40 @@ pruefe() {
     fehler=$((fehler + 1))
     return
   fi
+
+  # Jede ausgelieferte Antwort auf serverseitige Schlüssel absuchen.
+  # Das statische Bundle allein genügt dafür nicht: bei einer dynamischen
+  # Seite entsteht die Antwort erst beim Aufruf, und ein Wert, den eine
+  # Server-Komponente als Eigenschaft weiterreicht, steht dann im
+  # RSC-Datenstrom — also genau hier und nirgends sonst.
+  if grep -aq "RAUCHTESTGEHEIMNIS-" "$SICHERUNG/antwort.bin"; then
+    echo "  ✗ $pfad liefert einen serverseitigen Schlüssel aus!"
+    fehler=$((fehler + 1))
+    return
+  fi
+
   echo "  ✓ $pfad -> $rest"
 }
 
 echo "→ Seiten"
 for pfad in / /login /angebote /angebote/a1 /angebote/neu /rechnungen /rechnungen/r3 \
             /kunden /kunden/k1 /preisliste /aufmass /aufmass/auf1 /einstellungen /abo \
-            /rechtliches/impressum /rechtliches/datenschutz; do
+            /rechtliches/impressum /rechtliches/datenschutz \
+            /pakete /pakete/pk1 \
+            /angebot/tok-a2 /angebot/tok-a3; do
   pruefe "$pfad" 200 "text/html"
 done
 
+# Der Kundenlink ist der einzige Weg in die Anwendung ohne Anmeldung.
+# Ein Entwurf darf dort nicht auftauchen, ein geratener Schlüssel auch nicht.
+pruefe /angebot/tok-a1 404 ""
+pruefe /angebot/einfach-geraten 404 ""
+
 echo "→ Routen"
 pruefe /api/angebote/a1/pdf 200 "application/pdf"
+# Dasselbe PDF über den Kundenlink — ohne Anmeldung.
+pruefe /angebot/tok-a2/pdf 200 "application/pdf"
+pruefe /angebot/tok-a1/pdf 404 ""
 pruefe /api/rechnungen/r3/pdf 200 "application/pdf"
 pruefe /api/rechnungen/r3/erechnung 200 "xml"
 pruefe /api/export/kunden 200 "csv"
