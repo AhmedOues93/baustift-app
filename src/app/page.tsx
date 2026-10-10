@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+import { Erscheinen } from "@/components/startseite/erscheinen";
+import { Film } from "@/components/startseite/film";
 import { KONTINGENT, PREIS_MONATLICH_EUR } from "@/lib/abo";
 import { NACHFASSEN_NACH_TAGEN } from "@/lib/angebot";
 
@@ -11,22 +13,30 @@ import { NACHFASSEN_NACH_TAGEN } from "@/lib/angebot";
  * =============================================================================
  * Die einzige Seite, die jemand sieht, bevor er sich entscheidet. Deshalb
  * zeigt sie das Produkt, statt es zu beschreiben: jedes Bild hier ist ein
- * echter Bildschirm aus der Anwendung, aufgenommen auf 390px. Gezeichnete
- * Mockups wären hübscher und wären gelogen — und ein Handwerker, der nach der
- * Anmeldung etwas anderes vorfindet, kommt nicht wieder.
+ * echter Bildschirm aus der Anwendung, und das Video ist ein Mitschnitt der
+ * laufenden App. Beides entsteht mit `npm run bilder` und `npm run film`
+ * gegen den gebauten Stand — gezeichnete Mockups wären hübscher und wären
+ * gelogen, und ein Handwerker, der nach der Anmeldung etwas anderes
+ * vorfindet, kommt nicht wieder.
  *
- * Aufgebaut ist sie nach der Reihenfolge, in der die Fragen kommen:
- *   1. Was ist das, in einem Satz
+ * Aufgebaut nach der Reihenfolge, in der die Fragen kommen:
+ *   1. Was ist das, in einem Satz — und wie sieht es aus (Video)
  *   2. Kenne ich das Problem?
  *   3. Wie läuft das ab?
- *   4. Was kann es sonst?
- *   5. Was kostet es?
- *   6. Was passiert mit meinen Daten?
- *   7. Die Fragen, die übrig bleiben
+ *   4. Was passiert, nachdem ich gesendet habe?
+ *   5. Was kann es sonst?
+ *   6. Was kostet es?
+ *   7. Was passiert mit meinen Daten?
+ *   8. Die Fragen, die übrig bleiben
  *
  * Preis und Kontingente kommen aus derselben Konstante wie die Abo-Seite und
  * die AGB. Eine Zahl, die hier von Hand steht, ist die sicherste Art,
  * irgendwann etwas anderes zu versprechen, als die Software tut.
+ *
+ * Was hier bewusst NICHT steht: Kundenstimmen, Logos von Betrieben,
+ * Nutzerzahlen, „über 1000 Handwerker vertrauen uns". Es gibt sie noch
+ * nicht. Eine erfundene Zahl auf der Startseite ist der schnellste Weg,
+ * genau das Vertrauen zu verlieren, um das es hier geht.
  */
 
 const BESCHREIBUNG =
@@ -49,8 +59,6 @@ export const metadata: Metadata = {
     type: "website",
     locale: "de_DE",
     siteName: "Baustift",
-    // Das Bild ist der echte Kopf dieser Seite — so sieht der Empfänger in
-    // WhatsApp genau das, was ihn nach dem Antippen erwartet.
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "Baustift" }],
   },
   twitter: {
@@ -79,12 +87,22 @@ function strukturierteDaten() {
     operatingSystem: "Web, iOS, Android",
     inLanguage: "de",
     description: BESCHREIBUNG,
-    offers: {
-      "@type": "Offer",
-      price: String(PREIS_MONATLICH_EUR),
-      priceCurrency: "EUR",
-      description: `${PREIS_MONATLICH_EUR} € pro Monat zzgl. MwSt., monatlich kündbar`,
-    },
+    offers: [
+      {
+        "@type": "Offer",
+        name: "Testphase",
+        price: "0",
+        priceCurrency: "EUR",
+        description: `${KONTINGENT.trial} Angebote kostenlos, ohne Kreditkarte`,
+      },
+      {
+        "@type": "Offer",
+        name: "Baustift Pro",
+        price: String(PREIS_MONATLICH_EUR),
+        priceCurrency: "EUR",
+        description: `${PREIS_MONATLICH_EUR} € pro Monat zzgl. MwSt., monatlich kündbar`,
+      },
+    ],
   };
 }
 
@@ -99,8 +117,10 @@ export default function StartSeite() {
       <Kopfleiste />
       <main>
         <Hero />
+        <Merkmalsband />
         <Problem />
         <Ablauf />
+        <Kundenlink />
         <Funktionen />
         <Muster />
         <Preis />
@@ -116,12 +136,32 @@ export default function StartSeite() {
 /* ========================================================================= */
 
 function Kopfleiste() {
+  const sprungmarken = [
+    { href: "#ablauf", text: "Ablauf" },
+    { href: "#funktionen", text: "Funktionen" },
+    { href: "#preis", text: "Preis" },
+    { href: "#fragen", text: "Fragen" },
+  ];
+
   return (
     <header className="sticky top-0 z-40 border-b border-linie bg-papier/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
         <Wortmarke />
-        {/* Auf 390px ist die Kopfzeile auf den Pixel genau voll: darum
-            schmalere Innenabstände und ein kürzeres Wort auf dem Handy. */}
+
+        {/* Die Sprungmarken erscheinen erst, wenn wirklich Platz ist. Auf
+            390px ist die Kopfzeile auf den Pixel genau voll. */}
+        <nav className="hidden items-center gap-1 lg:flex">
+          {sprungmarken.map((s) => (
+            <a
+              key={s.href}
+              href={s.href}
+              className="inline-flex min-h-11 items-center rounded-gross px-3 text-sm font-medium text-text-leise transition-colors hover:bg-flaeche hover:text-text"
+            >
+              {s.text}
+            </a>
+          ))}
+        </nav>
+
         <nav className="flex items-center gap-1 sm:gap-2">
           <Link
             href="/login"
@@ -167,8 +207,8 @@ function Wortmarke({ hell = false }: { hell?: boolean }) {
 
 function Hero() {
   return (
-    <section className="mx-auto max-w-6xl px-5 pb-16 pt-12 lg:pb-24 lg:pt-20">
-      <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_.75fr]">
+    <section className="mx-auto max-w-6xl px-5 pb-14 pt-10 lg:pb-20 lg:pt-16">
+      <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_.85fr]">
         <div>
           <p className="inline-flex items-center gap-2 rounded-full bg-akzent-flaeche px-3 py-1.5 text-sm font-medium text-akzent">
             Für Handwerksbetriebe
@@ -213,16 +253,56 @@ function Hero() {
           </ul>
         </div>
 
-        <Handy
-          bild="/bilder/aufnahme.png"
-          alt="Baustift auf dem Handy: der Aufnahmeknopf für ein neues Angebot"
-          gross
-          prioritaet
-        />
+        {/* Der Mitschnitt statt eines Standbildes: in zwanzig Sekunden sieht
+            man, worum es geht — und zwar an der echten Anwendung. */}
+        <div className="mx-auto w-full max-w-[320px]">
+          <div className="overflow-hidden rounded-t-[2.2rem] border-[10px] border-b-0 border-tief bg-tief shadow-schwebend">
+            <div className="aspect-[390/844] overflow-hidden rounded-t-[1.5rem]">
+              <Film />
+            </div>
+          </div>
+          <p className="mt-3 text-center text-sm text-text-leise">
+            Echter Mitschnitt, keine Animation.
+          </p>
+        </div>
       </div>
     </section>
   );
 }
+
+/* ========================================================================= */
+
+/**
+ * Das schmale Band unter dem Hero.
+ *
+ * Steht hier statt Kundenlogos oder „schon 500 Betriebe": es gibt noch keine,
+ * und ein erfundener Beleg wäre an der Stelle am teuersten. Was stattdessen
+ * dasteht, ist überprüfbar — jeder Punkt lässt sich in der Anwendung
+ * nachsehen.
+ */
+function Merkmalsband() {
+  const punkte = [
+    { zahl: "~2 min", text: "vom Einsprechen bis zum fertigen PDF" },
+    { zahl: "0 €", text: `für die ersten ${KONTINGENT.trial} Angebote` },
+    { zahl: "EN 16931", text: "E-Rechnung, maschinell geprüft" },
+    { zahl: "DIN 5008", text: "Angebot und Rechnung nach Norm" },
+  ];
+
+  return (
+    <section className="border-y border-linie bg-flaeche">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-6 px-5 py-8 lg:grid-cols-4">
+        {punkte.map((p, i) => (
+          <Erscheinen key={p.zahl} verzug={i * 70}>
+            <p className="zahl font-titel text-2xl font-bold text-text">{p.zahl}</p>
+            <p className="mt-1 text-sm leading-snug text-text-leise">{p.text}</p>
+          </Erscheinen>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ========================================================================= */
 
 /**
  * Ein Screenshot im Handyrahmen.
@@ -280,19 +360,23 @@ function Problem() {
   ];
 
   return (
-    <section className="border-y border-linie bg-flaeche py-16 lg:py-20">
+    <section className="border-b border-linie bg-flaeche py-16 lg:py-20">
       <div className="mx-auto max-w-6xl px-5">
-        <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
-          Angebote schreiben kostet den Feierabend.
-        </h2>
+        <Erscheinen>
+          <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
+            Angebote schreiben kostet den Feierabend.
+          </h2>
+        </Erscheinen>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {punkte.map((p) => (
-            <div key={p.titel} className="rounded-karte bg-papier p-6">
-              <h3 className="font-titel text-lg font-bold tracking-tight text-text">
-                {p.titel}
-              </h3>
-              <p className="mt-2 leading-relaxed text-text-leise">{p.text}</p>
-            </div>
+          {punkte.map((p, i) => (
+            <Erscheinen key={p.titel} verzug={i * 90}>
+              <div className="h-full rounded-karte bg-papier p-6">
+                <h3 className="font-titel text-lg font-bold tracking-tight text-text">
+                  {p.titel}
+                </h3>
+                <p className="mt-2 leading-relaxed text-text-leise">{p.text}</p>
+              </div>
+            </Erscheinen>
           ))}
         </div>
       </div>
@@ -314,7 +398,7 @@ function Ablauf() {
     {
       nummer: "2",
       titel: "Prüfen",
-      text: "Baustift ordnet jeder Position einen Preis aus deiner Preisliste zu. Was es nicht sicher zuordnen kann, steht gelb markiert da — du setzt den Preis in zwei Sekunden.",
+      text: "Baustift ordnet jeder Position einen Preis aus deiner Preisliste zu. Was es nicht sicher zuordnen kann, steht gelb markiert da — und bis du es bestätigt hast, lässt sich das Angebot gar nicht versenden.",
       bild: "/bilder/angebot.png",
       alt: "Angebot mit Positionen, Mengen und Preisen zum Prüfen",
     },
@@ -322,40 +406,118 @@ function Ablauf() {
       nummer: "3",
       titel: "Senden",
       text: "Fertiges PDF mit deinem Logo, deiner Anschrift und allen Pflichtangaben. Per E-Mail oder direkt in den WhatsApp-Verlauf, in dem der Kunde ohnehin schreibt.",
-      bild: "/bilder/liste.png",
-      alt: "Übersicht der Angebote mit Kennzahlen",
+      bild: "/bilder/summe.png",
+      alt: "Summenblock eines fertigen Angebots mit Netto, MwSt. und Gesamtbetrag",
     },
   ];
 
   return (
     <section id="ablauf" className="scroll-mt-20 py-16 lg:py-24">
       <div className="mx-auto max-w-6xl px-5">
-        <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
-          Einsprechen. Prüfen. Senden.
-        </h2>
-        <p className="mt-3 max-w-xl text-lg text-text-leise">
-          Drei Schritte, ungefähr zwei Minuten — auf der Baustelle, nicht zu
-          Hause.
-        </p>
+        <Erscheinen>
+          <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
+            Einsprechen. Prüfen. Senden.
+          </h2>
+          <p className="mt-3 max-w-xl text-lg text-text-leise">
+            Drei Schritte, ungefähr zwei Minuten — auf der Baustelle, nicht zu
+            Hause.
+          </p>
+        </Erscheinen>
 
         {/* Drei Spalten statt drei breiter Reihen: nebeneinander sind die
             Schritte in einem Blick zu erfassen, und es entstehen nicht drei
             fast leere Bildschirmhöhen auf dem Rechner. */}
         <div className="mt-12 grid gap-10 lg:grid-cols-3 lg:gap-8">
-          {schritte.map((s) => (
-            <div key={s.nummer} className="flex flex-col">
-              <span className="zahl flex h-11 w-11 items-center justify-center rounded-full bg-tief text-lg font-semibold text-text-invers">
-                {s.nummer}
-              </span>
-              <h3 className="mt-4 font-titel text-xl font-bold tracking-tight text-text">
-                {s.titel}
-              </h3>
-              <p className="mt-2 leading-relaxed text-text-leise">{s.text}</p>
-              <div className="mt-6">
-                <Handy bild={s.bild} alt={s.alt} />
+          {schritte.map((s, i) => (
+            <Erscheinen key={s.nummer} verzug={i * 120}>
+              <div className="flex flex-col">
+                <span className="zahl flex h-11 w-11 items-center justify-center rounded-full bg-tief text-lg font-semibold text-text-invers">
+                  {s.nummer}
+                </span>
+                <h3 className="mt-4 font-titel text-xl font-bold tracking-tight text-text">
+                  {s.titel}
+                </h3>
+                <p className="mt-2 leading-relaxed text-text-leise">{s.text}</p>
+                <div className="mt-6">
+                  <Handy bild={s.bild} alt={s.alt} prioritaet={i === 0} />
+                </div>
               </div>
-            </div>
+            </Erscheinen>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ========================================================================= */
+
+/**
+ * Was nach dem Senden passiert.
+ *
+ * Der eigentliche Unterschied zu einer Vorlage in Word — und der Teil, den
+ * man auf einer Startseite sonst nie sieht, weil er erst nach dem Versand
+ * anfängt. Deshalb ein eigener Abschnitt und nicht eine Zeile in einer Liste.
+ */
+function Kundenlink() {
+  const punkte = [
+    {
+      titel: "Der Kunde braucht kein Konto",
+      text: "Er tippt auf den Link in der E-Mail oder in WhatsApp und sieht sein Angebot — Positionen, Summe, PDF zum Herunterladen.",
+    },
+    {
+      titel: "Zusagen ist ein Antippen",
+      text: "Kein Ausdrucken, kein Unterschreiben, kein Zurückschicken. Du bekommst die Zusage per E-Mail und siehst sie in der Übersicht.",
+    },
+    {
+      titel: "Und bei einer Absage erfährst du, warum",
+      text: "Zu teuer, anderer Termin, schon vergeben — der Kunde kann es dazuschreiben. Das ist die Information, die beim nächsten Angebot hilft.",
+    },
+    {
+      titel: "Du siehst, ob er es geöffnet hat",
+      text: "„Liegt es ungelesen da oder denkt er darüber nach?“ steht nicht mehr im Raum.",
+    },
+  ];
+
+  return (
+    <section className="border-y border-linie bg-flaeche py-16 lg:py-24">
+      <div className="mx-auto max-w-6xl px-5">
+        <div className="grid items-center gap-12 lg:grid-cols-[.85fr_1.15fr]">
+          <Erscheinen>
+            <Handy
+              bild="/bilder/kundenlink.png"
+              alt="Das Angebot beim Kunden: Positionen, Summe und die Knöpfe zum Annehmen oder Ablehnen"
+            />
+          </Erscheinen>
+
+          <div>
+            <Erscheinen>
+              <p className="inline-flex items-center gap-2 rounded-full bg-erfolg-flaeche px-3 py-1.5 text-sm font-medium text-erfolg">
+                Nach dem Senden
+              </p>
+              <h2 className="mt-5 text-3xl leading-tight sm:text-4xl">
+                Der Kunde sagt zu, ohne dass du anrufst.
+              </h2>
+              <p className="mt-4 max-w-xl text-lg leading-relaxed text-text-leise">
+                Jedes Angebot bekommt einen eigenen Link. Was danach passiert,
+                steht in deiner Übersicht — statt in einem Telefonat, an das
+                sich hinterher niemand erinnert.
+              </p>
+            </Erscheinen>
+
+            <div className="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+              {punkte.map((p, i) => (
+                <Erscheinen key={p.titel} verzug={i * 80}>
+                  <h3 className="font-titel text-base font-bold tracking-tight text-text">
+                    {p.titel}
+                  </h3>
+                  <p className="mt-1.5 text-[15px] leading-relaxed text-text-leise">
+                    {p.text}
+                  </p>
+                </Erscheinen>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -368,19 +530,31 @@ function Funktionen() {
   const gruppen = [
     {
       titel: "Aufmass per Stimme",
-      text: `„Bad Wand 1: 2,40 mal 2,50.“ Jedes Mass steht sofort in der Liste, Abzüge für Fenster und Türen inklusive. Die Aufnahme läuft nicht mit — du misst in Ruhe weiter, auch wenn das Telefon zwischendurch in der Tasche steckt.`,
+      text: "„Bad Wand 1: 2,40 mal 2,50.“ Jedes Mass steht sofort in der Liste, Abzüge für Fenster und Türen inklusive. Die Aufnahme läuft nicht mit — du misst in Ruhe weiter, auch wenn das Telefon zwischendurch in der Tasche steckt.",
       bild: "/bilder/aufmass.png",
       alt: "Aufmass mit einzelnen Messungen und zusammengerechneten Flächen",
     },
     {
+      titel: "Deine Preisliste, deine Preise",
+      text: "Einmal angelegt oder aus Excel importiert — auch mit Umlauten, ohne vorher umzuspeichern. Die KI ordnet zu, sie rechnet nicht: jeder Betrag kommt aus dieser Liste.",
+      bild: "/bilder/preisliste.png",
+      alt: "Preisliste mit Leistungen, Einheiten und Preisen",
+    },
+    {
+      titel: "Leistungspakete statt achtmal tippen",
+      text: "Ein Bad ist nicht eine Position, sondern immer dieselben acht. Einmal als Paket hinterlegt, kommen sie mit einem Antippen ins Angebot — mit den Preisen von heute, nicht von damals.",
+      bild: "/bilder/pakete.png",
+      alt: "Ein Leistungspaket mit mehreren Zeilen aus der Preisliste",
+    },
+    {
       titel: "Rechnungen und Erinnerungen",
-      text: `Aus dem angenommenen Angebot wird mit einem Tipp die Rechnung. Überfällige stehen ganz oben, mit einem Knopf für die Zahlungserinnerung. Teilzahlungen werden einzeln gebucht — Anzahlung, Rest, offener Betrag.`,
+      text: "Aus dem angenommenen Angebot wird mit einem Tipp die Rechnung. Überfällige stehen ganz oben, mit einem Knopf für die Zahlungserinnerung. Teilzahlungen werden einzeln gebucht — Anzahlung, Rest, offener Betrag.",
       bild: "/bilder/rechnungen.png",
       alt: "Rechnungsübersicht mit offenen und überfälligen Beträgen",
     },
     {
       titel: "Kunden mit Geschichte",
-      text: `Wer anruft, fragt: „Was haben wir denn bei Ihnen offen?“ In der Kundenakte stehen alle Angebote und Rechnungen auf einer Seite. Die Telefonnummer ist ein Link — antippen und anrufen.`,
+      text: "Wer anruft, fragt: „Was haben wir denn bei Ihnen offen?“ In der Kundenakte stehen alle Angebote und Rechnungen auf einer Seite. Die Telefonnummer ist ein Link — antippen und anrufen.",
       bild: "/bilder/kunde.png",
       alt: "Kundenakte mit offenen Angeboten und Rechnungen",
     },
@@ -388,24 +562,32 @@ function Funktionen() {
 
   const kurz = [
     {
-      titel: "Deine Preisliste",
-      text: "Einmal angelegt oder aus Excel importiert. Preise kommen immer von dir, nie aus der KI.",
-    },
-    {
       titel: "PDF nach DIN 5008",
-      text: "Mit Logo, Steuernummer und allen Pflichtangaben nach § 14 UStG. Auch für Kleinunternehmer.",
+      text: "Mit Logo, Steuernummer und allen Pflichtangaben nach § 14 UStG. Auch über mehrere Seiten lesbar.",
     },
     {
       titel: "E-Rechnung (EN 16931)",
-      text: "Die maschinenlesbare Datei für die Buchhaltung deiner Auftraggeber — Pflicht im B2B.",
+      text: "Die maschinenlesbare Datei für die Buchhaltung deiner Auftraggeber — geprüft gegen den Prüfer der EU-Kommission.",
+    },
+    {
+      titel: "Auch als Kleinunternehmer",
+      text: "Keine Umsatzsteuer, Hinweis nach § 19 UStG auf Angebot, Rechnung und in der E-Rechnung.",
     },
     {
       titel: "Nachfassen",
       text: `Angebote ohne Antwort stehen nach ${NACHFASSEN_NACH_TAGEN} Tagen auf einer Liste. Ein Knopf fragt höflich nach.`,
     },
     {
+      titel: "Aufträge und Baustellenakte",
+      text: "Aus der Zusage wird ein Auftrag mit Termin. Notizen von der Baustelle bleiben als Verlauf stehen.",
+    },
+    {
       titel: "Aufs Handy installierbar",
       text: "Baustift läuft im Browser und lässt sich auf den Startbildschirm legen wie eine App.",
+    },
+    {
+      titel: "Storno statt Radiergummi",
+      text: "Eine gestellte Rechnung lässt die Datenbank nicht mehr ändern. Korrigiert wird über ein Storno mit eigener Nummer.",
     },
     {
       titel: "Alles exportierbar",
@@ -414,13 +596,15 @@ function Funktionen() {
   ];
 
   return (
-    <section className="border-t border-linie bg-flaeche py-16 lg:py-24">
+    <section id="funktionen" className="scroll-mt-20 py-16 lg:py-24">
       <div className="mx-auto max-w-6xl px-5">
-        <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
-          Was sonst noch auf der Baustelle hilft.
-        </h2>
+        <Erscheinen>
+          <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
+            Was sonst noch auf der Baustelle hilft.
+          </h2>
+        </Erscheinen>
 
-        <div className="mt-12 flex flex-col gap-16">
+        <div className="mt-14 flex flex-col gap-20 lg:gap-24">
           {gruppen.map((g, i) => (
             <div
               key={g.titel}
@@ -428,29 +612,35 @@ function Funktionen() {
                 i % 2 === 0 ? "lg:[&>*:first-child]:order-2" : ""
               }`}
             >
-              <div>
-                <h3 className="font-titel text-2xl font-bold tracking-tight text-text">
-                  {g.titel}
-                </h3>
-                <p className="mt-3 max-w-lg text-lg leading-relaxed text-text-leise">
-                  {g.text}
-                </p>
-              </div>
-              <Handy bild={g.bild} alt={g.alt} />
+              <Erscheinen>
+                <div>
+                  <h3 className="font-titel text-2xl font-bold tracking-tight text-text">
+                    {g.titel}
+                  </h3>
+                  <p className="mt-3 max-w-lg text-lg leading-relaxed text-text-leise">
+                    {g.text}
+                  </p>
+                </div>
+              </Erscheinen>
+              <Erscheinen verzug={80}>
+                <Handy bild={g.bild} alt={g.alt} />
+              </Erscheinen>
             </div>
           ))}
         </div>
 
-        <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {kurz.map((k) => (
-            <div key={k.titel} className="rounded-karte bg-papier p-5">
-              <h3 className="font-titel text-base font-bold tracking-tight text-text">
-                {k.titel}
-              </h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-text-leise">
-                {k.text}
-              </p>
-            </div>
+        <div className="mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {kurz.map((k, i) => (
+            <Erscheinen key={k.titel} verzug={(i % 4) * 60}>
+              <div className="h-full rounded-karte border border-linie bg-flaeche p-5">
+                <h3 className="font-titel text-base font-bold tracking-tight text-text">
+                  {k.titel}
+                </h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-text-leise">
+                  {k.text}
+                </p>
+              </div>
+            </Erscheinen>
           ))}
         </div>
       </div>
@@ -462,37 +652,39 @@ function Funktionen() {
 
 function Muster() {
   return (
-    <section className="py-16 lg:py-20">
+    <section className="pb-16 lg:pb-20">
       <div className="mx-auto max-w-6xl px-5">
-        <div className="grid items-center gap-8 rounded-tafel bg-tief p-8 text-text-invers lg:grid-cols-[1.1fr_.9fr] lg:p-12">
-          <div>
-            <h2 className="text-3xl leading-tight text-text-invers sm:text-4xl">
-              Sieh dir an, was beim Kunden ankommt.
-            </h2>
-            <p className="mt-4 max-w-lg text-lg leading-relaxed text-text-invers/70">
-              Kein Bild eines PDFs, sondern das PDF selbst — genau so, wie
-              Baustift es erzeugt. Mit Positionen, Mengen, Netto, Mehrwertsteuer
-              und Pflichtangaben.
-            </p>
-            <a
-              href="/muster-angebot.pdf"
-              target="_blank"
-              rel="noopener"
-              className="mt-7 inline-flex min-h-12 items-center justify-center rounded-gross bg-akzent px-7 font-semibold text-text-invers transition-colors hover:bg-akzent-hover"
-            >
-              Muster-Angebot öffnen (PDF)
-            </a>
+        <Erscheinen>
+          <div className="grid items-center gap-8 rounded-tafel bg-tief p-8 text-text-invers lg:grid-cols-[1.1fr_.9fr] lg:p-12">
+            <div>
+              <h2 className="text-3xl leading-tight text-text-invers sm:text-4xl">
+                Sieh dir an, was beim Kunden ankommt.
+              </h2>
+              <p className="mt-4 max-w-lg text-lg leading-relaxed text-text-invers/70">
+                Kein Bild eines PDFs, sondern das PDF selbst — genau so, wie
+                Baustift es erzeugt. Mit Positionen, Mengen, Netto,
+                Mehrwertsteuer und Pflichtangaben.
+              </p>
+              <a
+                href="/muster-angebot.pdf"
+                target="_blank"
+                rel="noopener"
+                className="mt-7 inline-flex min-h-12 items-center justify-center rounded-gross bg-akzent px-7 font-semibold text-text-invers transition-colors hover:bg-akzent-hover"
+              >
+                Muster-Angebot öffnen (PDF)
+              </a>
+            </div>
+            <div className="rounded-karte bg-papier p-1.5 shadow-schwebend">
+              <Image
+                src="/bilder/desktop.png"
+                alt="Baustift am Rechner: die Angebotsübersicht mit Seitenleiste"
+                width={2560}
+                height={1600}
+                className="h-auto w-full rounded-[0.8rem]"
+              />
+            </div>
           </div>
-          <div className="rounded-karte bg-papier p-1.5 shadow-schwebend">
-            <Image
-              src="/bilder/desktop.png"
-              alt="Baustift am Rechner: die Angebotsübersicht mit Seitenleiste"
-              width={2560}
-              height={1600}
-              className="h-auto w-full rounded-[0.8rem]"
-            />
-          </div>
-        </div>
+        </Erscheinen>
       </div>
     </section>
   );
@@ -500,77 +692,164 @@ function Muster() {
 
 /* ========================================================================= */
 
+/**
+ * Die Pläne.
+ *
+ * Es gibt zwei, und sie unterscheiden sich in genau zwei Dingen: Preis und
+ * Anzahl der Angebote pro Monat. Keine Funktion ist hinter einer teureren
+ * Stufe versteckt — die Tabelle sagt das offen, statt es zu verschweigen.
+ * Beides steht so auch in der Abo-Seite und in den AGB, weil alle drei aus
+ * derselben Konstante lesen.
+ */
 function Preis() {
-  const enthalten = [
-    `${KONTINGENT.aktiv} Angebote im Monat`,
-    "Unbegrenzt Kunden, Preise und Aufmasse",
-    "Rechnungen, Storno und E-Rechnung",
-    "PDF-Versand per E-Mail",
-    "Zahlungserinnerungen und Teilzahlungen",
-    "Alle Daten jederzeit exportierbar",
+  const zeilen: { was: string; test: string | true; pro: string | true }[] = [
+    {
+      was: "Angebote pro Monat",
+      test: `${KONTINGENT.trial} insgesamt`,
+      pro: `${KONTINGENT.aktiv}`,
+    },
+    { was: "Kunden, Preise und Aufmasse", test: "unbegrenzt", pro: "unbegrenzt" },
+    { was: "Angebot per Stimme oder Tastatur", test: true, pro: true },
+    { was: "Aufmass per Stimme", test: true, pro: true },
+    { was: "Leistungspakete", test: true, pro: true },
+    { was: "PDF mit Logo und Pflichtangaben", test: true, pro: true },
+    { was: "Versand per E-Mail und WhatsApp", test: true, pro: true },
+    { was: "Kundenlink zum Zusagen", test: true, pro: true },
+    { was: "Aufträge und Baustellendokumentation", test: true, pro: true },
+    { was: "Rechnungen, Storno und Teilzahlungen", test: true, pro: true },
+    { was: "E-Rechnung nach EN 16931", test: true, pro: true },
+    { was: "Nachfassen und Zahlungserinnerung", test: true, pro: true },
+    { was: "Export als CSV und JSON", test: true, pro: true },
+    { was: "Kreditkarte nötig", test: "nein", pro: "ja" },
   ];
 
   return (
     <section id="preis" className="scroll-mt-20 border-y border-linie bg-flaeche py-16 lg:py-24">
       <div className="mx-auto max-w-6xl px-5">
-        <h2 className="text-3xl leading-tight sm:text-4xl">Ein Preis, keine Stufen.</h2>
-        <p className="mt-3 max-w-xl text-lg text-text-leise">
-          Ein einziger Auftrag mehr im Jahr zahlt das Abo mehrfach.
-        </p>
+        <Erscheinen>
+          <h2 className="text-3xl leading-tight sm:text-4xl">Ein Preis, keine Stufen.</h2>
+          <p className="mt-3 max-w-xl text-lg text-text-leise">
+            Alles ist überall dabei. Unterschiedlich ist nur, wie viele
+            Angebote im Monat — und ob du dafür zahlst.
+          </p>
+        </Erscheinen>
 
         <div className="mt-10 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-          <div className="rounded-karte border border-linie bg-papier p-7">
-            <p className="font-titel text-lg font-bold tracking-tight text-text">
-              Testen
-            </p>
-            <p className="zahl mt-3 text-4xl font-semibold text-text">0 €</p>
-            <p className="mt-2 text-text-leise">
-              <span className="zahl">{KONTINGENT.trial}</span> Angebote, ohne
-              Kreditkarte. Läuft von selbst aus — es wird nichts abgebucht.
-            </p>
-            <Link
-              href="/signup"
-              className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-gross border border-linie bg-flaeche px-6 font-semibold text-text transition-colors hover:bg-papier"
-            >
-              Konto anlegen
-            </Link>
-          </div>
+          <Erscheinen>
+            <div className="h-full rounded-karte border border-linie bg-papier p-7">
+              <p className="font-titel text-lg font-bold tracking-tight text-text">
+                Testen
+              </p>
+              <p className="mt-3 text-4xl font-semibold text-text">
+                <span className="zahl">0</span>&nbsp;€
+              </p>
+              <p className="mt-2 text-text-leise">
+                <span className="zahl">{KONTINGENT.trial}</span> Angebote, ohne
+                Kreditkarte. Läuft von selbst aus — es wird nichts abgebucht.
+              </p>
+              <Link
+                href="/signup"
+                className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-gross border border-linie bg-flaeche px-6 font-semibold text-text transition-colors hover:bg-papier"
+              >
+                Konto anlegen
+              </Link>
+            </div>
+          </Erscheinen>
 
-          <div className="rounded-karte bg-tief p-7 text-text-invers shadow-schwebend">
-            <p className="font-titel text-lg font-bold tracking-tight text-text-invers">
-              Baustift Pro
-            </p>
-            <p className="mt-3 flex items-baseline gap-2">
-              <span className="zahl text-5xl font-semibold">
-                {PREIS_MONATLICH_EUR} €
-              </span>
-              <span className="text-text-invers/70">pro Monat, zzgl. MwSt.</span>
-            </p>
-            <p className="mt-2 text-text-invers/70">
-              Monatlich kündbar, mit einem Klick im Kundenportal.
-            </p>
-
-            <ul className="mt-6 flex flex-col gap-2.5">
-              {enthalten.map((e) => (
-                <li key={e} className="flex gap-2.5 text-text-invers/90">
-                  <span aria-hidden="true" className="text-akzent">
-                    ✓
-                  </span>
-                  {e}
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              href="/signup"
-              className="mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-gross bg-akzent px-6 font-semibold text-text-invers transition-colors hover:bg-akzent-hover"
-            >
-              Jetzt kostenlos anfangen
-            </Link>
-          </div>
+          <Erscheinen verzug={100}>
+            <div className="h-full rounded-karte bg-tief p-7 text-text-invers shadow-schwebend">
+              <p className="font-titel text-lg font-bold tracking-tight text-text-invers">
+                Baustift Pro
+              </p>
+              <p className="mt-3 flex items-baseline gap-2">
+                <span className="text-5xl font-semibold">
+                  <span className="zahl">{PREIS_MONATLICH_EUR}</span>&nbsp;€
+                </span>
+                <span className="text-text-invers/70">pro Monat, zzgl. MwSt.</span>
+              </p>
+              <p className="mt-2 text-text-invers/70">
+                <span className="zahl">{KONTINGENT.aktiv}</span> Angebote im
+                Monat. Monatlich kündbar, mit einem Klick im Kundenportal.
+              </p>
+              <p className="mt-5 rounded-feld bg-text-invers/10 p-4 text-[15px] leading-relaxed text-text-invers/80">
+                Ein einziger Auftrag mehr im Jahr zahlt das Abo mehrfach. Und
+                wenn nicht: kündigen, Daten herunterladen, fertig.
+              </p>
+              <Link
+                href="/signup"
+                className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-gross bg-akzent px-6 font-semibold text-text-invers transition-colors hover:bg-akzent-hover"
+              >
+                Jetzt kostenlos anfangen
+              </Link>
+            </div>
+          </Erscheinen>
         </div>
+
+        {/* Der Vergleich. Feste Spaltenbreiten, damit bei 390 px nichts
+            abgeschnitten wird: die beiden Wertspalten bekommen je ein Viertel
+            und lange Angaben brechen um, statt aus der Karte zu laufen. */}
+        <Erscheinen>
+          <div className="mt-10 overflow-hidden rounded-karte border border-linie bg-papier">
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                <col className="w-1/2 sm:w-3/5" />
+                <col className="w-1/4 sm:w-1/5" />
+                <col className="w-1/4 sm:w-1/5" />
+              </colgroup>
+              <caption className="sr-only">
+                Vergleich der beiden Pläne: Testen und Baustift Pro
+              </caption>
+              <thead>
+                <tr className="border-b border-linie bg-flaeche">
+                  <th scope="col" className="px-4 py-3 text-sm font-semibold text-text sm:px-6">
+                    Was drin ist
+                  </th>
+                  <th scope="col" className="px-2 py-3 text-center text-sm font-semibold text-text sm:px-4">
+                    Testen
+                  </th>
+                  <th scope="col" className="px-2 py-3 text-center text-sm font-semibold text-text sm:px-4">
+                    Pro
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {zeilen.map((z) => (
+                  <tr key={z.was} className="border-b border-linie last:border-0">
+                    <th
+                      scope="row"
+                      className="px-4 py-3 text-left text-[15px] font-normal text-text sm:px-6"
+                    >
+                      {z.was}
+                    </th>
+                    <Zelle wert={z.test} />
+                    <Zelle wert={z.pro} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Erscheinen>
       </div>
     </section>
+  );
+}
+
+/** Eine Zelle im Planvergleich: Haken oder Text, nie beides. */
+function Zelle({ wert }: { wert: string | true }) {
+  return (
+    <td className="px-2 py-3 text-center sm:px-4">
+      {wert === true ? (
+        <>
+          {/* Der Haken ist dekorativ; vorgelesen wird das Wort daneben. */}
+          <span aria-hidden="true" className="text-lg text-erfolg">
+            ✓
+          </span>
+          <span className="sr-only">enthalten</span>
+        </>
+      ) : (
+        <span className="zahl text-xs text-text-leise sm:text-sm">{wert}</span>
+      )}
+    </td>
   );
 }
 
@@ -580,7 +859,7 @@ function Vertrauen() {
   const punkte = [
     {
       titel: "Server in der EU",
-      text: "Datenbank und Anmeldung laufen in Frankfurt. Mit allen Dienstleistern bestehen Verträge zur Auftragsverarbeitung.",
+      text: "Datenbank, Anmeldung und die Anwendung selbst laufen in Frankfurt. Welche Dienste darüber hinaus beteiligt sind, steht einzeln im Datenschutzhinweis.",
     },
     {
       titel: "Keine Aufnahmen gespeichert",
@@ -588,7 +867,7 @@ function Vertrauen() {
     },
     {
       titel: "Deine Kundendaten bleiben deine",
-      text: "Du bekommst den Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO — das brauchst du, wenn du Kundendaten erfasst.",
+      text: "Du bekommst den Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO — den brauchst du, wenn du Kundendaten erfasst.",
     },
     {
       titel: "Export und Löschung eingebaut",
@@ -599,22 +878,27 @@ function Vertrauen() {
   return (
     <section className="py-16 lg:py-24">
       <div className="mx-auto max-w-6xl px-5">
-        <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
-          Kundendaten sind kein Nebenthema.
-        </h2>
-        <p className="mt-3 max-w-2xl text-lg text-text-leise">
-          In deinen Angeboten stehen Namen und Anschriften deiner Auftraggeber.
-          Dafür bist du verantwortlich — wir liefern, was du dafür brauchst.
-        </p>
+        <Erscheinen>
+          <h2 className="max-w-2xl text-3xl leading-tight sm:text-4xl">
+            Kundendaten sind kein Nebenthema.
+          </h2>
+          <p className="mt-3 max-w-2xl text-lg text-text-leise">
+            In deinen Angeboten stehen Namen und Anschriften deiner
+            Auftraggeber. Dafür bist du verantwortlich — wir liefern, was du
+            dafür brauchst.
+          </p>
+        </Erscheinen>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
-          {punkte.map((p) => (
-            <div key={p.titel} className="rounded-karte border border-linie p-6">
-              <h3 className="font-titel text-lg font-bold tracking-tight text-text">
-                {p.titel}
-              </h3>
-              <p className="mt-2 leading-relaxed text-text-leise">{p.text}</p>
-            </div>
+          {punkte.map((p, i) => (
+            <Erscheinen key={p.titel} verzug={(i % 2) * 80}>
+              <div className="h-full rounded-karte border border-linie p-6">
+                <h3 className="font-titel text-lg font-bold tracking-tight text-text">
+                  {p.titel}
+                </h3>
+                <p className="mt-2 leading-relaxed text-text-leise">{p.text}</p>
+              </div>
+            </Erscheinen>
           ))}
         </div>
       </div>
@@ -634,7 +918,12 @@ function Fragen() {
     {
       frage: "Kann die KI meine Preise verändern?",
       antwort:
-        "Nein. Die KI ordnet zu, sie rechnet nicht. Jeder Preis kommt aus deiner Preisliste. Was sie nicht sicher zuordnen kann, wird gelb markiert und wartet auf dich — lieber einmal nachfragen als still einen falschen Preis ins Angebot schreiben.",
+        "Nein. Die KI ordnet zu, sie rechnet nicht. Jeder Preis kommt aus deiner Preisliste. Was sie nicht sicher zuordnen kann, wird gelb markiert — und solange da etwas offen steht, lässt sich das Angebot nicht versenden. Lieber einmal nachfragen als still einen falschen Preis zum Kunden schicken.",
+    },
+    {
+      frage: "Was sieht der Kunde, wenn er auf den Link tippt?",
+      antwort:
+        "Sein Angebot: die Positionen, die Summe, das PDF zum Herunterladen und zwei Knöpfe. Er braucht kein Konto und muss nichts installieren. Entscheiden kann er einmal; danach siehst du die Zusage oder die Absage mit Begründung in deiner Übersicht.",
     },
     {
       frage: "Muss ich etwas installieren?",
@@ -652,6 +941,11 @@ function Fragen() {
         "Ja. Trag es in den Firmendaten ein, dann weist Baustift keine Umsatzsteuer aus und setzt den Hinweis nach § 19 UStG auf Angebot und Rechnung — auch in der E-Rechnung.",
     },
     {
+      frage: "Brauche ich die E-Rechnung überhaupt?",
+      antwort:
+        "Empfangen können muss sie in Deutschland jeder Betrieb im B2B-Geschäft seit 2025; selbst ausstellen wird gestaffelt Pflicht. Baustift erzeugt sie nach EN 16931 — geprüft gegen das Schema und den Prüfer der EU-Kommission, nicht nur gegen unsere eigene Meinung davon. Die Fristen für deinen Betrieb klärst du mit dem Steuerberater.",
+    },
+    {
       frage: "Wie komme ich wieder raus?",
       antwort:
         "Monatlich kündbar im Kundenportal, ohne Begründung. Vorher lädst du alle Daten als CSV und JSON herunter. Das Konto samt allem löschst du selbst, ohne uns zu fragen.",
@@ -659,27 +953,28 @@ function Fragen() {
   ];
 
   return (
-    <section className="border-t border-linie bg-flaeche py-16 lg:py-24">
+    <section id="fragen" className="scroll-mt-20 border-t border-linie bg-flaeche py-16 lg:py-24">
       <div className="mx-auto max-w-3xl px-5">
-        <h2 className="text-3xl leading-tight sm:text-4xl">Fragen, die oft kommen.</h2>
+        <Erscheinen>
+          <h2 className="text-3xl leading-tight sm:text-4xl">Fragen, die oft kommen.</h2>
+        </Erscheinen>
 
         <div className="mt-10 flex flex-col gap-3">
-          {fragen.map((f) => (
-            <details
-              key={f.frage}
-              className="group rounded-karte bg-papier p-5 [&_summary::-webkit-details-marker]:hidden"
-            >
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 font-titel text-lg font-bold tracking-tight text-text">
-                {f.frage}
-                <span
-                  aria-hidden="true"
-                  className="shrink-0 text-2xl leading-none text-text-leise transition-transform group-open:rotate-45"
-                >
-                  +
-                </span>
-              </summary>
-              <p className="mt-3 leading-relaxed text-text-leise">{f.antwort}</p>
-            </details>
+          {fragen.map((f, i) => (
+            <Erscheinen key={f.frage} verzug={Math.min(i, 4) * 50}>
+              <details className="group rounded-karte bg-papier p-5 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 font-titel text-lg font-bold tracking-tight text-text">
+                  {f.frage}
+                  <span
+                    aria-hidden="true"
+                    className="shrink-0 text-2xl leading-none text-text-leise transition-transform group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 leading-relaxed text-text-leise">{f.antwort}</p>
+              </details>
+            </Erscheinen>
           ))}
         </div>
       </div>
@@ -693,20 +988,22 @@ function Schluss() {
   return (
     <section className="py-16 lg:py-24">
       <div className="mx-auto max-w-3xl px-5 text-center">
-        <h2 className="text-3xl leading-tight sm:text-4xl">
-          Das nächste Angebot schreibt sich unterwegs.
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-text-leise">
-          <span className="zahl">{KONTINGENT.trial}</span> Angebote zum
-          Ausprobieren, ohne Kreditkarte. Wenn es nichts für dich ist, hörst du
-          nie wieder von uns.
-        </p>
-        <Link
-          href="/signup"
-          className="mt-8 inline-flex min-h-12 items-center justify-center rounded-gross bg-akzent px-8 font-semibold text-text-invers transition-colors hover:bg-akzent-hover"
-        >
-          Kostenlos anfangen
-        </Link>
+        <Erscheinen>
+          <h2 className="text-3xl leading-tight sm:text-4xl">
+            Das nächste Angebot schreibt sich unterwegs.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-text-leise">
+            <span className="zahl">{KONTINGENT.trial}</span> Angebote zum
+            Ausprobieren, ohne Kreditkarte. Wenn es nichts für dich ist, hörst
+            du nie wieder von uns.
+          </p>
+          <Link
+            href="/signup"
+            className="mt-8 inline-flex min-h-12 items-center justify-center rounded-gross bg-akzent px-8 font-semibold text-text-invers transition-colors hover:bg-akzent-hover"
+          >
+            Kostenlos anfangen
+          </Link>
+        </Erscheinen>
       </div>
     </section>
   );
@@ -725,8 +1022,9 @@ function Fusszeile() {
           </p>
         </div>
 
-        {/* py-2.5 sind hier keine Optik: mit 20 px Zeilenhöhe sind die Verweise
-            am Handy kaum zu treffen. 44 px ist das Mass einer Fingerkuppe. */}
+        {/* min-h 44px sind hier keine Optik: mit 20 px Zeilenhöhe sind die
+            Verweise am Handy kaum zu treffen. 44 px ist das Mass einer
+            Fingerkuppe. */}
         <nav className="flex flex-wrap items-center gap-x-6 border-t border-text-invers/10 pt-4 text-sm [&>a]:inline-flex [&>a]:min-h-[44px] [&>a]:items-center">
           <Link href="/rechtliches/impressum" className="text-text-invers/70 hover:text-text-invers">
             Impressum

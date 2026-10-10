@@ -30,6 +30,15 @@ const HANDY = [
   { name: "aufmass", pfad: "/aufmass/auf1", zu: 120 },
   { name: "rechnungen", pfad: "/rechnungen", zu: 0 },
   { name: "kunde", pfad: "/kunden/k1", zu: 0 },
+  // Das Angebot beim Kunden — der einzige Bildschirm, den nicht der
+  // Handwerker sieht, sondern sein Auftraggeber.
+  { name: "kundenlink", pfad: "/angebot/tok-a2", zu: 420 },
+  // Die Preisliste, aus der alle Beträge kommen.
+  { name: "preisliste", pfad: "/preisliste", zu: 0 },
+  // Leistungspakete: die immer gleichen acht Zeilen mit einem Namen.
+  { name: "pakete", pfad: "/pakete/pk1", zu: 0 },
+  // Die Summe eines fertigen Angebots.
+  { name: "summe", pfad: "/angebote/a1", zu: 1450 },
 ];
 
 const browser = await chromium.launch({ executablePath: BROWSER });
