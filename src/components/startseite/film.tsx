@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Der Mitschnitt der laufenden Anwendung.
@@ -14,16 +14,26 @@ import { useRef, useState } from "react";
  *  - **Stumm und von selbst laufend.** Ton auf einer Startseite ist
  *    übergriffig, und ohne Ton darf das Video automatisch starten. Deshalb
  *    auch `playsInline`: ohne das reisst iOS das Video in den Vollbildmodus.
- *  - **`preload="none"` bis zum ersten Antippen auf dem Handy.** 400 KB über
- *    Mobilfunk sind nicht nichts, und wer nur den Preis sucht, soll sie nicht
- *    zahlen. Am Rechner läuft es gleich los.
- *  - **Standbild als Rückfallebene.** Das Format ist webm; Browser, die es
- *    nicht abspielen, zeigen das Bild, mit dem der Film beginnt. Ein MP4
- *    daneben wäre schöner, lässt sich hier aber nicht erzeugen.
+ *  - **`preload="metadata"`.** Geladen werden erst die Kopfdaten, nicht die
+ *    400 KB Bilddaten; die holt der Browser, wenn er zu spielen anfängt.
+ *  - **Standbild als Rückfallebene.** Das Format ist webm. Safari kann das
+ *    erst ab Version 17.4 — ältere iPhones zeigen das Standbild, und das ist
+ *    ein echter Bildschirmausschnitt, kein leerer Kasten. Dort verschwindet
+ *    auch der Abspielknopf, statt auf einen Druck hin nichts zu tun. Ein MP4
+ *    daneben wäre die bessere Lösung; der hier verfügbare ffmpeg kann aber
+ *    kein H.264 erzeugen.
  */
 export function Film() {
   const [laeuft, setLaeuft] = useState(false);
+  const [abspielbar, setAbspielbar] = useState(true);
   const ref = useRef<HTMLVideoElement>(null);
+
+  // Kann dieser Browser webm überhaupt? Erst im Effekt, damit Server und
+  // erster Client-Durchlauf dasselbe ausgeben.
+  useEffect(() => {
+    const video = ref.current;
+    if (video && video.canPlayType("video/webm") === "") setAbspielbar(false);
+  }, []);
 
   return (
     <div className="relative">
@@ -48,7 +58,7 @@ export function Film() {
         weil der Browser das Starten unterbindet oder Energiesparen aktiv ist.
         Ein Abspielknopf über einem laufenden Video ist nur im Weg.
       */}
-      {laeuft ? null : (
+      {laeuft || !abspielbar ? null : (
         <button
           type="button"
           onClick={() => void ref.current?.play()}
