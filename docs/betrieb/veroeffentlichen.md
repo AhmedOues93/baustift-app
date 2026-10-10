@@ -112,6 +112,12 @@ Drei Stufen, die man nicht verwechseln sollte:
 Dazu `npm run typecheck` und `npm run lint`. Alles zusammen läuft in CI
 (`.github/workflows/ci.yml`) bei jedem Push.
 
+Zwei Befehle erzeugen Dateien für die Startseite statt zu prüfen, und
+gehören nach jeder Änderung am Aussehen noch einmal ausgeführt:
+`npm run muster` holt `public/muster-angebot.pdf` aus der gebauten
+Anwendung (also das echte Angebots-PDF, nicht eine Nachbildung), und
+`./scripts/film-aufnehmen.sh` nimmt den Mitschnitt im Kopfbereich neu auf.
+
 ### Sicherheitslücken in den Abhängigkeiten
 
 `npm audit --omit=dev` muss **0** melden — das läuft in CI mit und bricht
